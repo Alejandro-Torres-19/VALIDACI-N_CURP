@@ -49,7 +49,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1 class='main-title'>🎓 Validador y Analizador de CURP</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Sistema de control escolar con auditoría cruzada de datos oficiales</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Sistema de control escolar con auditoría cruzada y verificación matemática</p>", unsafe_allow_html=True)
 
 # Botón superior discreto para actualizar datos
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
@@ -116,6 +116,32 @@ def cargar_datos():
 
 df_alumnos = cargar_datos()
 
+# --- FUNCIÓN DE VERIFICACIÓN MATEMÁTICA DEL DÍGITO VERIFICADOR (RENAPO) ---
+def validar_digito_verificador_curp(curp: str) -> bool:
+    """Calcula y valida el dígito verificador oficial (carácter 18) y siglo (carácter 17)."""
+    curp = curp.strip().upper()
+    if len(curp) != 18:
+        return False
+    
+    patron_estricto = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$')
+    if not patron_estricto.match(curp):
+        return False
+        
+    diccionario = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+    suma = 0
+    
+    for i in range(17):
+        caracter = curp[i]
+        valor = diccionario.find(caracter)
+        if valor == -1:
+            return False
+        suma += valor * (18 - i)
+    
+    digito_esperado = (10 - (suma % 10)) % 10
+    digito_real = int(curp[17]) if curp[17].isdigit() else diccionario.find(curp[17])
+    
+    return digito_esperado == digito_real
+
 # --- FUNCIÓN DE DECODIFICACIÓN ---
 def decodificar_curp(curp):
     curp = curp.strip().upper()
@@ -149,6 +175,9 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
         if not patron_curp.match(curp_input):
             st.error("🔴 **CURP Inválida:** La estructura no cumple con los 18 caracteres oficiales exigidos por RENAPO.")
         else:
+            # Validación matemática estricta del dígito verificador
+            es_matematicamente_valida = validar_digito_verificador_curp(curp_input)
+            
             info_curp = decodificar_curp(curp_input)
             
             if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
@@ -200,6 +229,8 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
                     val_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
                     
                     errores = []
+                    if not es_matematicamente_valida:
+                        errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso (posible CURP inventada o alterada).")
                     if not coincide_fecha:
                         errores.append(f"Fecha en Sheets ({fecha_mostrar}) no coincide con la CURP ({info_curp['fecha_nacimiento']}).")
                     if not val_ap_p:
@@ -268,6 +299,12 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
                             st.success(f"📅 **Fecha Cifrada:** {info_curp['fecha_nacimiento']}")
                             st.success(f"🚻 **Género:** {info_curp['genero']}")
                             st.success(f"📍 **Entidad:** {info_curp['estado_nacimiento']} ({info_curp['codigo_estado']})")
+                        
+                        # Indicador visual del resultado de verificación matemática
+                        if es_matematicamente_valida:
+                            st.success("🔒 **Verificación Oficial:** El dígito verificador matemático es **CORRECTO** (Estructura legal válida).")
+                        else:
+                            st.error("🚨 **Verificación Oficial:** El dígito verificador matemático es **INCORRECTO** (La CURP no cumple con los estándares de control de SEGOB).")
 
                     with tab3:
                         st.markdown("#### Dictamen General del Alumno")
@@ -275,14 +312,14 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
                             st.markdown("""
                                 <div class='success-box'>
                                     <h3>🟢 Validación Exitosa</h3>
-                                    <p>Todos los datos de la base de datos concuerdan perfectamente con la estructura matemática y oficial de la CURP.</p>
+                                    <p>Todos los datos de la base de datos concuerdan perfectamente y la estructura matemática de la CURP ha sido verificada con éxito.</p>
                                 </div>
                             """, unsafe_allow_html=True)
                         else:
                             st.markdown("""
                                 <div class='error-box'>
                                     <h3>🔴 Alerta de Discrepancia Detectada</h3>
-                                    <p>Se encontraron inconsistencias entre las columnas del registro y la CURP:</p>
+                                    <p>Se encontraron inconsistencias o posibles errores en el registro:</p>
                                 </div>
                             """, unsafe_allow_html=True)
                             for err in errores:
