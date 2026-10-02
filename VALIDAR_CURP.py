@@ -2,7 +2,6 @@ import os
 import streamlit as st
 import pandas as pd
 import gspread
-from google.oauth2.service_account import Credentials
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,15 +16,13 @@ st.write("")
 # --- CONEXIÓN A GOOGLE SHEETS USANDO SECRETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    # Cargamos el diccionario de secretos de Streamlit Cloud
     credentials_dict = dict(st.secrets["gcp_service_account"])
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
-    client = gspread.authorize(creds)
     
-    # Abrir la hoja de cálculo y obtener explícitamente la primera pestaña
+    # Autorizamos usando el método directo de gspread para diccionarios de servicio
+    client = gspread.service_account_from_dict(credentials_dict)
+    
+    # Abrir la hoja de cálculo por su nombre exacto y obtener la primera pestaña
     spreadsheet = client.open("BD_Alumnos") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
@@ -41,7 +38,7 @@ try:
     else:
         df_alumnos = pd.DataFrame()
 except Exception as e:
-    st.error(f"Error al conectar con Google Sheets: {e}")
+    st.error(f"Error detallado al conectar con Google Sheets: {e}")
     df_alumnos = pd.DataFrame()
 
 
@@ -152,6 +149,4 @@ if st.button("Verificar Alumno"):
             st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
     else:
         st.warning("Por favor, introduce una CURP antes de verificar.")
-
-
 
