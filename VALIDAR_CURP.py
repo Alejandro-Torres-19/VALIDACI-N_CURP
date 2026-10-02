@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import pandas as pd
 import gspread
+from google.oauth2.service_account import Credentials
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,13 +17,22 @@ st.write("")
 # --- CONEXIÓN A GOOGLE SHEETS USANDO SECRETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    # Cargamos el diccionario de secretos de Streamlit Cloud
+    # Definimos los permisos necesarios para Google Sheets y Drive
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    
+    # Extraemos el diccionario de los secretos de Streamlit
     credentials_dict = dict(st.secrets["gcp_service_account"])
     
-    # Autorizamos usando el método directo de gspread para diccionarios de servicio
-    client = gspread.service_account_from_dict(credentials_dict)
+    # Creamos las credenciales con los scopes explícitos
+    creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     
-    # Abrir la hoja de cálculo por su nombre exacto y obtener la primera pestaña
+    # Autorizamos el cliente gspread
+    client = gspread.authorize(creds)
+    
+    # Abrimos la hoja de cálculo por su nombre exacto y obtenemos la primera pestaña
     spreadsheet = client.open("BD_Alumnos") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
@@ -146,6 +156,9 @@ if st.button("Verificar Alumno"):
                 st.write(f"Apellido Materno: {datos_gobierno['segundo_apellido']}")
                 
         else:
+            st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
+    else:
+        st.warning("Por favor, introduce una CURP antes de verificar.")
             st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
     else:
         st.warning("Por favor, introduce una CURP antes de verificar.")
