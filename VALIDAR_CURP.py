@@ -25,8 +25,9 @@ def conectar_google_sheets():
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
     client = gspread.authorize(creds)
     
+    # Abrir la hoja de cálculo y obtener explícitamente la primera pestaña
     spreadsheet = client.open("BD_Alumnos") 
-    worksheet = spreadsheet.sheet1
+    worksheet = spreadsheet.get_worksheet(0)
     return worksheet
 
 # Cargamos los datos de la hoja evitando errores de celdas vacías
@@ -151,8 +152,6 @@ if st.button("Verificar Alumno"):
             st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
     else:
         st.warning("Por favor, introduce una CURP antes de verificar.")
-
-
 
 
 
