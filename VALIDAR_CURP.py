@@ -381,24 +381,25 @@ else:
             input_ap_mat = st.text_input("Apellido Materno:", placeholder="Ej. REYES")
             input_genero = st.selectbox("Género:", ["HOMBRE (H)", "MUJER (M)"])
             
-        col_n3, col_n4 = st.columns(2)
-        with col_n3:
-            # Configurado desde el 1 de enero de 2006
-            input_fecha = st.date_input(
-                "Fecha de Nacimiento:",
-                value=datetime.date(2010, 1, 1),
-                min_value=datetime.date(2006, 1, 1),
-                max_value=datetime.date.today()
-            )
-        with col_n4:
-            input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
+        st.markdown("##### Fecha de Nacimiento (Día / Mes / Año)")
+        f_col1, f_col2, f_col3 = st.columns(3)
+        with f_col1:
+            input_dia = st.number_input("Día", min_value=1, max_value=31, value=1)
+        with f_col2:
+            input_mes = st.number_input("Mes", min_value=1, max_value=12, value=1)
+        with f_col3:
+            input_anio = st.number_input("Año", min_value=2006, max_value=2026, value=2010)
             
-        btn_auditar = st.form_submit_button("⚖️ Comprobar Coherencia y Alarma CURP", type="primary")
+        input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
+            
+        btn_auditar = st.form_submit_button("⚖️️ Comprobar Coherencia y Alarma CURP", type="primary")
 
     if btn_auditar:
         if not input_nombre or not input_ap_pat:
             st.warning("⚠️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
         else:
+            input_fecha = datetime.date(int(input_anio), int(input_mes), int(input_dia))
+            
             genero_letra = "H" if "HOMBRE" in input_genero else "M"
             prefijo_calculado = calcular_prefijo_teorico(
                 input_nombre, input_ap_pat, input_ap_mat, 
