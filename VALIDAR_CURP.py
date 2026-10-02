@@ -22,12 +22,14 @@ def conectar_google_sheets():
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # Creamos un diccionario mutable con los secretos
+    # Copiamos el diccionario de secretos
     credentials_dict = dict(st.secrets["gcp_service_account"])
     
-    # Limpiamos y corregimos los saltos de línea de la llave privada de forma segura
+    # Decodificación robusta para forzar los saltos de línea reales en la llave privada
     pk = credentials_dict.get("private_key", "")
-    if "\\n" in pk:
+    try:
+        pk = pk.encode().decode('unicode-escape')
+    except Exception:
         pk = pk.replace("\\n", "\n")
     credentials_dict["private_key"] = pk
     
