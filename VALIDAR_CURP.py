@@ -4,6 +4,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import re
 import unicodedata
+import datetime
 from rapidfuzz import process, fuzz
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -382,7 +383,13 @@ else:
             
         col_n3, col_n4 = st.columns(2)
         with col_n3:
-            input_fecha = st.date_input("Fecha de Nacimiento:")
+            # Configurado desde el 1 de enero de 2006
+            input_fecha = st.date_input(
+                "Fecha de Nacimiento:",
+                value=datetime.date(2010, 1, 1),
+                min_value=datetime.date(2006, 1, 1),
+                max_value=datetime.date.today()
+            )
         with col_n4:
             input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
             
