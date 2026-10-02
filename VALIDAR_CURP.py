@@ -12,12 +12,37 @@ st.set_page_config(
     layout="centered"
 )
 
-# Estilos CSS personalizados para mejorar la interfaz visual
+# Estilos CSS personalizados para un diseño uniforme, elegante y sin recortes
 st.markdown("""
     <style>
         .main-title { font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: center; margin-bottom: 0px; }
         .sub-title { font-size: 1.1rem; color: #4B5563; text-align: center; margin-bottom: 25px; }
-        .card-box { background-color: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 15px; }
+        
+        /* Tarjetas de información uniformes */
+        .info-card {
+            background-color: #1E293B;
+            border: 1px solid #334155;
+            padding: 15px 18px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .info-label {
+            font-size: 0.85rem;
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        /* Tamaño de texto uniforme que permite ajuste de líneas sin cortar con puntos suspensivos */
+        .info-value {
+            font-size: 1.2rem;
+            color: #F8FAFC;
+            font-weight: 700;
+            word-break: break-word;
+            line-height: 1.3;
+        }
         .success-box { background-color: #ECFDF5; padding: 15px; border-radius: 10px; border: 1px solid #A7F3D0; color: #065F46; }
         .error-box { background-color: #FEF2F2; padding: 15px; border-radius: 10px; border: 1px solid #FECACA; color: #991B1B; }
     </style>
@@ -151,6 +176,9 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
                     fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
                     entidad_db = str(resultado.get('Entidad Nacimiento', '')).strip().upper()
                     
+                    # Nombre completo unificado
+                    nombre_completo = f"{nombre_db} {ap_p_db} {ap_m_db}"
+                    
                     # Normalización de fecha
                     fecha_mostrar = fecha_db
                     coincide_fecha = False
@@ -188,14 +216,46 @@ if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_contai
                     
                     with tab1:
                         st.markdown("#### Información Registrada en Google Sheets")
+                        
+                        # Tarjetas HTML personalizadas para garantizar tamaño uniforme y visibilidad completa sin recortes
+                        st.markdown(f"""
+                            <div class='info-card'>
+                                <div class='info-label'>Nombre Completo</div>
+                                <div class='info-value'>{nombre_completo}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.metric("Nombre Completo", f"{nombre_db} {ap_p_db} {ap_m_db}")
-                            st.metric("Grado y Grupo", f"{grado_db}° - '{grupo_db}'")
+                            st.markdown(f"""
+                                <div class='info-card'>
+                                    <div class='info-label'>Grado y Grupo</div>
+                                    <div class='info-value'>{grado_db}° - '{grupo_db}'</div>
+                                </div>
+                            """, unsafe_allow_html=True)
                         with col2:
-                            st.metric("CCT Escuela", cct_db if cct_db else "No asignado")
-                            st.metric("Fecha de Nacimiento", fecha_mostrar)
-                        st.write(f"**Entidad de Nacimiento (Sheets):** {entidad_db if entidad_db else 'No especificada'}")
+                            st.markdown(f"""
+                                <div class='info-card'>
+                                    <div class='info-label'>CCT Escuela</div>
+                                    <div class='info-value'>{cct_db if cct_db else 'No asignado'}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                        col3, col4 = st.columns(2)
+                        with col3:
+                            st.markdown(f"""
+                                <div class='info-card'>
+                                    <div class='info-label'>Fecha de Nacimiento</div>
+                                    <div class='info-value'>{fecha_mostrar}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        with col4:
+                            st.markdown(f"""
+                                <div class='info-card'>
+                                    <div class='info-label'>Entidad (Sheets)</div>
+                                    <div class='info-value'>{entidad_db if entidad_db else 'No especificada'}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
 
                     with tab2:
                         st.markdown("#### Análisis Cifrado de los Dígitos de la CURP")
