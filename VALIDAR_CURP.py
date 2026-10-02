@@ -202,7 +202,11 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
 # --- SELECCIÓN DE MODOS / PESTAÑAS PRINCIPALES (VERSIÓN ALPHA) ---
 modo_app = st.radio(
     "Selecciona el Modo de Validación (Evaluación Directiva):",
-    ["🔍 Modo A: Búsqueda y Validación por CURP", "📝 Modo B: Auditoría por Datos Demográficos (Nombres)"],
+    [
+        "🔍 Modo A: Búsqueda y Validación por CURP", 
+        "📝 Modo B: Auditoría por Datos Demográficos (Manual)", 
+        "⚡ Modo C: Búsqueda Inteligente por Nombre"
+    ],
     horizontal=True
 )
 
@@ -366,9 +370,9 @@ if modo_app == "🔍 Modo A: Búsqueda y Validación por CURP":
                         st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
 
 # ==============================================================================
-# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (NOMBRE Y APELLIDOS)
+# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (NOMBRE Y APELLIDOS MANUAL)
 # ==============================================================================
-else:
+elif modo_app == "📝 Modo B: Auditoría por Datos Demográficos (Manual)":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
     st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja de datos.")
 
@@ -392,7 +396,7 @@ else:
             
         input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
             
-        btn_auditar = st.form_submit_button("⚖️️ Comprobar Coherencia y Alarma CURP", type="primary")
+        btn_auditar = st.form_submit_button("⚖️ Comprobar Coherencia y Alarma CURP", type="primary")
 
     if btn_auditar:
         if not input_nombre or not input_ap_pat:
@@ -437,3 +441,104 @@ else:
                             st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Requiere revisión manual en gob.mx**.")
                 else:
                     st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
+
+# ==============================================================================
+# MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA
+# ==============================================================================
+else:
+    st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
+    st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
+
+    termino_busqueda = st.text_input("Buscar alumno en Google Sheets:", placeholder="Ej. Alejandro Torres o solo Torres")
+
+    if termino_busqueda:
+        if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+        else:
+            # Búsqueda insensible a mayúsculas en Nombre o Apellidos
+            mask = (
+                df_alumnos['Nombre(s)'].astype(str).str.contains(termino_busqueda, case=False, na=False) |
+                df_alumnos['Apellido Paterno'].astype(str).str.contains(termino_busqueda, case=False, na=False) |
+                df_alumnos['Apellido Materno'].astype(str).str.contains(termino_busqueda, case=False, na=False)
+            )
+            alumnos_encontrados = df_alumnos[mask]
+            cantidad = len(alumnos_encontrados)
+            
+            if cantidad == 0:
+                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
+            
+            elif cantidad == 1:
+                # CASO 1: Coincidencia única
+                alumno = alumnos_encontrados.iloc[0]
+                
+                nom_g = str(alumno.get('Nombre(s)', '')).strip()
+                pat_g = str(alumno.get('Apellido Paterno', '')).strip()
+                mat_g = str(alumno.get('Apellido Materno', '')).strip()
+                curp_g = str(alumno.get('CURP', '')).strip().upper()
+                grado_g = str(alumno.get('Grado', '')).strip()
+                grupo_g = str(alumno.get('Grupo', '')).strip()
+                
+                st.success(f"🎯 ¡Alumno encontrado de forma única: **{nom_g} {pat_g} {mat_g}**!")
+                
+                es_valida_mat = validar_digito_verificador_curp(curp_g)
+                
+                col_res1, col_res2 = st.columns(2)
+                with col_res1:
+                    st.markdown(f"""
+                        <div class='info-card'>
+                            <div class='info-label'>CURP Registrada</div>
+                            <div class='info-value'><code>{curp_g}</code></div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col_res2:
+                    st.markdown(f"""
+                        <div class='info-card'>
+                            <div class='info-label'>Grado y Grupo</div>
+                            <div class='info-value'>{grado_g}° - '{grupo_g}'</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                if es_valida_mat:
+                    st.markdown("""
+                        <div class='success-box'>
+                            <h3>🟢 Validación Exitosa</h3>
+                            <p>El dígito verificador matemático de esta CURP es oficial y correcto.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div class='error-box'>
+                            <h3>🔴 Alerta Crítica</h3>
+                            <p>El dígito verificador de esta CURP es falso (posible CURP inventada o alterada).</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+            else:
+                # CASO 2: Múltiples resultados (Homónimos / Desambiguación)
+                st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
+                
+                opciones_alumnos = []
+                for idx, row in alumnos_encontrados.iterrows():
+                    n_completo = f"{row.get('Nombre(s)')} {row.get('Apellido Paterno')} {row.get('Apellido Materno')} (CURP: {row.get('CURP')})"
+                    opciones_alumnos.append((n_completo, idx))
+                    
+                alumno_seleccionado_label = st.selectbox("Elige el registro correcto de la lista:", [op[0] for op in opciones_alumnos])
+                
+                idx_real = next(op[1] for op in opciones_alumnos if op[0] == alumno_seleccionado_label)
+                alumno = df_alumnos.loc[idx_real]
+                
+                curp_g = str(alumno.get('CURP', '')).strip().upper()
+                es_valida_mat = validar_digito_verificador_curp(curp_g)
+                
+                st.write("")
+                st.markdown(f"""
+                    <div class='info-card'>
+                        <div class='info-label'>CURP Seleccionada</div>
+                        <div class='info-value'><code>{curp_g}</code></div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if es_valida_mat:
+                    st.success("🟢 El alumno seleccionado cuenta con una CURP matemáticamente correcta.")
+                else:
+                    st.error("🚨 Alerta Directiva: El alumno seleccionado tiene una CURP con errores en el dígito verificador (Requiere revisión manual).")
