@@ -58,7 +58,16 @@ def cargar_datos():
         ws = conectar_google_sheets()
         data = ws.get_all_values()
         if len(data) > 1:
-            df = pd.DataFrame(data[1:], columns=data[0][:len(data[1])])
+            headers = [h.strip() for h in data[0]]
+            rows = []
+            for row in data[1:]:
+                # Asegurar que cada fila coincida exactamente con las columnas de los encabezados
+                if len(row) < len(headers):
+                    row = row + [''] * (len(headers) - len(row))
+                else:
+                    row = row[:len(headers)]
+                rows.append(row)
+            df = pd.DataFrame(rows, columns=headers)
             df = df.loc[:, df.columns != ''] # Limpiar columnas vacías
             return df
         else:
@@ -167,17 +176,17 @@ if st.button("Ejecutar Análisis y Cruce de Alumno", type="primary"):
                     ap_p_db = str(resultado.get('Apellido Paterno', '')).strip().upper()
                     ap_m_db = str(resultado.get('Apellido Materno', '')).strip().upper()
                     
-                    # Leemos la fecha de Google Sheets
+                    # Leemos la fecha de Google Sheets de forma segura
                     fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
                     estado_db = info_curp['estado_nacimiento']
                     
-                    # Normalización estricta de fecha para hacer la comparación infalible
+                    # Normalización estricta y comparación real
                     coincide_fecha = False
                     fecha_mostrar = fecha_db
                     
                     if fecha_db and fecha_db != "nan" and fecha_db != "":
                         try:
-                            # Convertimos la fecha leída de Sheets (ej. D/M/YYYY o YYYY-MM-DD) a formato estándar YYYY-MM-DD
+                            # Intenta convertir cualquier formato de fecha de Sheets (ej. 4/6/2020) a YYYY-MM-DD
                             fecha_dt = pd.to_datetime(fecha_db, dayfirst=True, errors='coerce')
                             if pd.notna(fecha_dt):
                                 fecha_db_norm = fecha_dt.strftime('%Y-%m-%d')
@@ -188,7 +197,7 @@ if st.button("Ejecutar Análisis y Cruce de Alumno", type="primary"):
                         except Exception:
                             coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
                     else:
-                        fecha_mostrar = "No disponible"
+                        fecha_mostrar = "No disponible / Vacía"
                         coincide_fecha = False
 
                     col_a, col_b = st.columns(2)
