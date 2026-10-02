@@ -2,8 +2,4 @@ streamlit
 pandas
 gspread
 google-auth
-oauth2client
-selenium
-webdriver-manager
-setuptools
-undetected-chromedriver
+rapidfuzz
