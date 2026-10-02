@@ -17,22 +17,14 @@ st.write("")
 # --- CONEXIÓN A GOOGLE SHEETS USANDO SECRETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    # Definimos los permisos necesarios para Google Sheets y Drive
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    
-    # Extraemos el diccionario de los secretos de Streamlit
     credentials_dict = dict(st.secrets["gcp_service_account"])
-    
-    # Creamos las credenciales con los scopes explícitos
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
-    
-    # Autorizamos el cliente gspread
     client = gspread.authorize(creds)
     
-    # Abrimos la hoja de cálculo por su nombre exacto y obtenemos la primera pestaña
     spreadsheet = client.open("BD_Alumnos") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
@@ -57,7 +49,6 @@ except Exception as e:
 def consultar_renapo_selenium(curp_a_buscar):
     options = uc.ChromeOptions()
     
-    # Opciones esenciales para entornos sin pantalla (headless) en la nube
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -68,7 +59,6 @@ def consultar_renapo_selenium(curp_a_buscar):
     datos_extraidos = None
     
     try:
-        # Detección automática del binario de Chromium en Linux (Streamlit Cloud) o uso automático en Windows
         if os.path.exists("/usr/bin/chromium"):
             options.binary_location = "/usr/bin/chromium"
             driver = uc.Chrome(options=options, headless=True, use_subprocess=True)
@@ -77,25 +67,21 @@ def consultar_renapo_selenium(curp_a_buscar):
             
         driver.get("https://www.gob.mx/curp/")
         
-        # Ingresar CURP
         input_curp = WebDriverWait(driver, 15).until(
             condiciones.presence_of_element_located((By.ID, "curp"))
         )
         input_curp.clear()
         input_curp.send_keys(curp_a_buscar)
         
-        # Hacer clic en buscar
         boton_buscar = WebDriverWait(driver, 10).until(
             condiciones.element_to_be_clickable((By.ID, "search-curp"))
         )
         boton_buscar.click()
         
-        # Esperar resultados oficiales
         WebDriverWait(driver, 15).until(
             condiciones.presence_of_element_located((By.CLASS_NAME, "datos-solicitante"))
         )
         
-        # Extracción de campos
         nombres = driver.find_element(By.XPATH, "//td[contains(text(), 'Nombre(s):')]/following-sibling::td").text
         primer_apellido = driver.find_element(By.XPATH, "//td[contains(text(), 'Primer apellido:')]/following-sibling::td").text
         segundo_apellido = driver.find_element(By.XPATH, "//td[contains(text(), 'Segundo apellido:')]/following-sibling::td").text
@@ -159,7 +145,3 @@ if st.button("Verificar Alumno"):
             st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
     else:
         st.warning("Por favor, introduce una CURP antes de verificar.")
-            st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
-    else:
-        st.warning("Por favor, introduce una CURP antes de verificar.")
-
