@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import re
+import unicodedata
 from rapidfuzz import process, fuzz
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -35,7 +36,6 @@ st.markdown("""
             margin-bottom: 4px;
             font-weight: 600;
         }
-        /* Tamaño de texto uniforme que permite ajuste de líneas sin cortar con puntos suspensivos */
         .info-value {
             font-size: 1.2rem;
             color: #F8FAFC;
@@ -49,7 +49,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1 class='main-title'>🎓 Validador y Analizador de CURP</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Sistema de control escolar con auditoría cruzada y verificación matemática</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Sistema de control escolar - Versión Alpha (Evaluación Directiva)</p>", unsafe_allow_html=True)
 
 # Botón superior discreto para actualizar datos
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
@@ -116,20 +116,17 @@ def cargar_datos():
 
 df_alumnos = cargar_datos()
 
-# --- FUNCIÓN DE VERIFICACIÓN MATEMÁTICA DEL DÍGITO VERIFICADOR (RENAPO) ---
+# --- FUNCIONES AUXILIARES DE MATEMÁTICA Y CURP ---
 def validar_digito_verificador_curp(curp: str) -> bool:
-    """Calcula y valida el dígito verificador oficial (carácter 18) y siglo (carácter 17)."""
     curp = curp.strip().upper()
     if len(curp) != 18:
         return False
-    
     patron_estricto = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$')
     if not patron_estricto.match(curp):
         return False
         
     diccionario = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
     suma = 0
-    
     for i in range(17):
         caracter = curp[i]
         valor = diccionario.find(caracter)
@@ -139,18 +136,14 @@ def validar_digito_verificador_curp(curp: str) -> bool:
     
     digito_esperado = (10 - (suma % 10)) % 10
     digito_real = int(curp[17]) if curp[17].isdigit() else diccionario.find(curp[17])
-    
     return digito_esperado == digito_real
 
-# --- FUNCIÓN DE DECODIFICACIÓN ---
 def decodificar_curp(curp):
     curp = curp.strip().upper()
     if len(curp) != 18:
         return None
-    
     yy, mm, dd = curp[4:6], curp[6:8], curp[8:10]
     siglo = "20" if int(yy) <= 30 else "19"
-    
     return {
         "letra_primer_apellido": curp[0],
         "vocal_primer_apellido": curp[1],
@@ -162,167 +155,282 @@ def decodificar_curp(curp):
         "estado_nacimiento": CODIGOS_ESTADOS.get(curp[11:13], "Desconocido")
     }
 
-# --- ENTRADA PRINCIPAL ---
-st.markdown("### 🔍 Ingresa la CURP del alumno")
-curp_input = st.text_input("", placeholder="Ej. CAHD140521HMCDRYA3", label_visibility="collapsed").strip().upper()
+def normalizar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    texto = unicodedata.normalize('NFD', texto)
+    texto = ''.join([c for c in texto if not unicodedata.combining(c)])
+    return texto.upper().strip()
 
-patron_curp = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$')
+def obtener_primera_vocal_interna(palabra):
+    for letra in palabra[1:]:
+        if letra in "AEIOU":
+            return letra
+    return 'X'
 
-if st.button("🚀 Ejecutar Validación y Análisis", type="primary", use_container_width=True):
-    if not curp_input:
-        st.warning("⚠️ Por favor, introduce una CURP en el campo de texto.")
-    else:
-        if not patron_curp.match(curp_input):
-            st.error("🔴 **CURP Inválida:** La estructura no cumple con los 18 caracteres oficiales exigidos por RENAPO.")
+def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
+    """Calcula la base lógica inicial de la CURP en base a los datos demográficos."""
+    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
+    
+    c1 = p_pat[0] if len(p_pat) > 0 else "X"
+    c2 = obtener_primera_vocal_interna(p_pat)
+    c3 = p_mat[0] if len(p_mat) > 0 else "X"
+    c4 = p_nom[0] if len(p_nom) > 0 else "X"
+    
+    try:
+        partes_fecha = str(fecha_nac).split(' ')[0].split('-')
+        if len(partes_fecha) == 3:
+            aa = partes_fecha[0][2:]
+            mm = partes_fecha[1]
+            dd = partes_fecha[2]
+            f_str = f"{aa}{mm}{dd}"
         else:
-            # Validación matemática estricta del dígito verificador
-            es_matematicamente_valida = validar_digito_verificador_curp(curp_input)
-            
-            info_curp = decodificar_curp(curp_input)
-            
-            if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-                st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+            f_str = "000000"
+    except:
+        f_str = "000000"
+        
+    g_str = "H" if "H" in str(genero).upper() else "M"
+    
+    # Inverso de estados para pasar de Nombre de Estado a Código de 2 letras
+    estados_inverso = {v: k for k, v in CODIGOS_ESTADOS.items()}
+    ent_limpia = normalizar_texto(entidad)
+    ent_str = estados_inverso.get(ent_limpia, "NE")
+    
+    return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
+
+# --- SELECCIÓN DE MODOS / PESTAÑAS PRINCIPALES (VERSIÓN ALPHA) ---
+modo_app = st.radio(
+    "Selecciona el Modo de Validación (Evaluación Directiva):",
+    ["🔍 Modo A: Búsqueda y Validación por CURP", "📝 Modo B: Auditoría por Datos Demográficos (Nombres)"],
+    horizontal=True
+)
+
+st.markdown("---")
+
+# ==============================================================================
+# MODO A: BÚSQUEDA Y VALIDACIÓN POR CURP DIRECTA
+# ==============================================================================
+if modo_app == "🔍 Modo A: Búsqueda y Validación por CURP":
+    st.markdown("### 🔍 Ingresa la CURP del alumno")
+    curp_input = st.text_input("", placeholder="Ej. CAHD140521HMCDRYA3", label_visibility="collapsed").strip().upper()
+
+    patron_curp = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$')
+
+    if st.button("🚀 Ejecutar Validación por CURP", type="primary", use_container_width=True):
+        if not curp_input:
+            st.warning("⚠️ Por favor, introduce una CURP en el campo de texto.")
+        else:
+            if not patron_curp.match(curp_input):
+                st.error("🔴 **CURP Inválida:** La estructura no cumple con los 18 caracteres oficiales exigidos por RENAPO.")
             else:
-                lista_curps_db = df_alumnos['CURP'].astype(str).str.strip().str.upper().tolist()
-                match_exacto = df_alumnos[df_alumnos['CURP'].str.strip().str.upper() == curp_input]
+                es_matematicamente_valida = validar_digito_verificador_curp(curp_input)
+                info_curp = decodificar_curp(curp_input)
                 
-                resultado = None
-                if not match_exacto.empty:
-                    resultado = match_exacto.iloc[0]
+                if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+                    st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
                 else:
-                    mejor_match, puntuacion, indice = process.extractOne(curp_input, lista_curps_db, scorer=fuzz.ratio)
-                    if puntuacion >= 85:
-                        resultado = df_alumnos.iloc[indice]
-                
-                if resultado is not None:
-                    # Extracción de columnas de Google Sheets
-                    ap_p_db = str(resultado.get('Apellido Paterno', '')).strip().upper()
-                    ap_m_db = str(resultado.get('Apellido Materno', '')).strip().upper()
-                    nombre_db = str(resultado.get('Nombre(s)', '')).strip().upper()
-                    grado_db = str(resultado.get('Grado', '')).strip()
-                    grupo_db = str(resultado.get('Grupo', '')).strip()
-                    cct_db = str(resultado.get('CCT', '')).strip()
-                    fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
-                    entidad_db = str(resultado.get('Entidad Nacimiento', '')).strip().upper()
+                    lista_curps_db = df_alumnos['CURP'].astype(str).str.strip().str.upper().tolist()
+                    match_exacto = df_alumnos[df_alumnos['CURP'].str.strip().str.upper() == curp_input]
                     
-                    # Nombre completo unificado
-                    nombre_completo = f"{nombre_db} {ap_p_db} {ap_m_db}"
+                    resultado = None
+                    if not match_exacto.empty:
+                        resultado = match_exacto.iloc[0]
+                    else:
+                        mejor_match, puntuacion, indice = process.extractOne(curp_input, lista_curps_db, scorer=fuzz.ratio)
+                        if puntuacion >= 85:
+                            resultado = df_alumnos.iloc[indice]
                     
-                    # Normalización de fecha
-                    fecha_mostrar = fecha_db
-                    coincide_fecha = False
-                    if fecha_db and fecha_db != "nan" and fecha_db != "":
-                        try:
-                            fecha_dt = pd.to_datetime(fecha_db, dayfirst=True, errors='coerce')
-                            if pd.notna(fecha_dt):
-                                fecha_db_norm = fecha_dt.strftime('%Y-%m-%d')
-                                fecha_mostrar = fecha_db_norm
-                                coincide_fecha = (fecha_db_norm == info_curp['fecha_nacimiento'])
-                            else:
+                    if resultado is not None:
+                        ap_p_db = str(resultado.get('Apellido Paterno', '')).strip().upper()
+                        ap_m_db = str(resultado.get('Apellido Materno', '')).strip().upper()
+                        nombre_db = str(resultado.get('Nombre(s)', '')).strip().upper()
+                        grado_db = str(resultado.get('Grado', '')).strip()
+                        grupo_db = str(resultado.get('Grupo', '')).strip()
+                        cct_db = str(resultado.get('CCT', '')).strip()
+                        fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
+                        entidad_db = str(resultado.get('Entidad Nacimiento', '')).strip().upper()
+                        
+                        nombre_completo = f"{nombre_db} {ap_p_db} {ap_m_db}"
+                        
+                        fecha_mostrar = fecha_db
+                        coincide_fecha = False
+                        if fecha_db and fecha_db != "nan" and fecha_db != "":
+                            try:
+                                fecha_dt = pd.to_datetime(fecha_db, dayfirst=True, errors='coerce')
+                                if pd.notna(fecha_dt):
+                                    fecha_db_norm = fecha_dt.strftime('%Y-%m-%d')
+                                    fecha_mostrar = fecha_db_norm
+                                    coincide_fecha = (fecha_db_norm == info_curp['fecha_nacimiento'])
+                                else:
+                                    coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
+                            except Exception:
                                 coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
-                        except Exception:
-                            coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
 
-                    # Validaciones cruzadas
-                    val_ap_p = ap_p_db.startswith(info_curp['letra_primer_apellido']) if ap_p_db else False
-                    val_ap_m = ap_m_db.startswith(info_curp['letra_segundo_apellido']) if ap_m_db else False
-                    val_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
-                    
-                    errores = []
-                    if not es_matematicamente_valida:
-                        errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso (posible CURP inventada o alterada).")
-                    if not coincide_fecha:
-                        errores.append(f"Fecha en Sheets ({fecha_mostrar}) no coincide con la CURP ({info_curp['fecha_nacimiento']}).")
-                    if not val_ap_p:
-                        errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
-                    if not val_ap_m and ap_m_db:
-                        errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db}`.")
-                    if not val_nom:
-                        errores.append(f"La inicial del Nombre (`{info_curp['letra_nombre']}`) no concuerda con `{nombre_db}`.")
+                        val_ap_p = ap_p_db.startswith(info_curp['letra_primer_apellido']) if ap_p_db else False
+                        val_ap_m = ap_m_db.startswith(info_curp['letra_segundo_apellido']) if ap_m_db else False
+                        val_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
+                        
+                        errores = []
+                        if not es_matematicamente_valida:
+                            errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso (posible CURP inventada o alterada).")
+                        if not coincide_fecha:
+                            errores.append(f"Fecha en Sheets ({fecha_mostrar}) no coincide con la CURP ({info_curp['fecha_nacimiento']}).")
+                        if not val_ap_p:
+                            errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
+                        if not val_ap_m and ap_m_db:
+                            errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db}`.")
+                        if not val_nom:
+                            errores.append(f"La inicial del Nombre (`{info_curp['letra_nombre']}`) no concuerda con `{nombre_db}`.")
 
-                    st.write("")
-                    
-                    # --- DISEÑO EN PESTAÑAS (TABS) ---
-                    tab1, tab2, tab3 = st.tabs(["👤 Perfil del Alumno", "🔍 Desglose CURP", "⚖️ Auditoría y Estado"])
-                    
-                    with tab1:
-                        st.markdown("#### Información Registrada en Google Sheets")
+                        st.write("")
+                        tab1, tab2, tab3 = st.tabs(["👤 Perfil del Alumno", "🔍 Desglose CURP", "⚖️ Auditoría y Estado"])
                         
-                        # Tarjetas HTML personalizadas para garantizar tamaño uniforme y visibilidad completa sin recortes
-                        st.markdown(f"""
-                            <div class='info-card'>
-                                <div class='info-label'>Nombre Completo</div>
-                                <div class='info-value'>{nombre_completo}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
+                        with tab1:
+                            st.markdown("#### Información Registrada en Google Sheets")
                             st.markdown(f"""
                                 <div class='info-card'>
-                                    <div class='info-label'>Grado y Grupo</div>
-                                    <div class='info-value'>{grado_db}° - '{grupo_db}'</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        with col2:
-                            st.markdown(f"""
-                                <div class='info-card'>
-                                    <div class='info-label'>CCT Escuela</div>
-                                    <div class='info-value'>{cct_db if cct_db else 'No asignado'}</div>
+                                    <div class='info-label'>Nombre Completo</div>
+                                    <div class='info-value'>{nombre_completo}</div>
                                 </div>
                             """, unsafe_allow_html=True)
                             
-                        col3, col4 = st.columns(2)
-                        with col3:
-                            st.markdown(f"""
-                                <div class='info-card'>
-                                    <div class='info-label'>Fecha de Nacimiento</div>
-                                    <div class='info-value'>{fecha_mostrar}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        with col4:
-                            st.markdown(f"""
-                                <div class='info-card'>
-                                    <div class='info-label'>Entidad (Sheets)</div>
-                                    <div class='info-value'>{entidad_db if entidad_db else 'No especificada'}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown(f"""
+                                    <div class='info-card'>
+                                        <div class='info-label'>Grado y Grupo</div>
+                                        <div class='info-value'>{grado_db}° - '{grupo_db}'</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col2:
+                                st.markdown(f"""
+                                    <div class='info-card'>
+                                        <div class='info-label'>CCT Escuela</div>
+                                        <div class='info-value'>{cct_db if cct_db else 'No asignado'}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                
+                            col3, col4 = st.columns(2)
+                            with col3:
+                                st.markdown(f"""
+                                    <div class='info-card'>
+                                        <div class='info-label'>Fecha de Nacimiento</div>
+                                        <div class='info-value'>{fecha_mostrar}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col4:
+                                st.markdown(f"""
+                                    <div class='info-card'>
+                                        <div class='info-label'>Entidad (Sheets)</div>
+                                        <div class='info-value'>{entidad_db if entidad_db else 'No especificada'}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
 
-                    with tab2:
-                        st.markdown("#### Análisis Cifrado de los Dígitos de la CURP")
-                        c_a, c_b = st.columns(2)
-                        with c_a:
-                            st.info(f"📌 **1er Apellido:** Letra `{info_curp['letra_primer_apellido']}` | Vocal `{info_curp['vocal_primer_apellido']}`")
-                            st.info(f"📌 **2do Apellido:** Letra `{info_curp['letra_segundo_apellido']}`")
-                            st.info(f"📌 **Nombre:** Letra `{info_curp['letra_nombre']}`")
-                        with c_b:
-                            st.success(f"📅 **Fecha Cifrada:** {info_curp['fecha_nacimiento']}")
-                            st.success(f"🚻 **Género:** {info_curp['genero']}")
-                            st.success(f"📍 **Entidad:** {info_curp['estado_nacimiento']} ({info_curp['codigo_estado']})")
-                        
-                        # Indicador visual del resultado de verificación matemática
-                        if es_matematicamente_valida:
-                            st.success("🔒 **Verificación Oficial:** El dígito verificador matemático es **CORRECTO** (Estructura legal válida).")
-                        else:
-                            st.error("🚨 **Verificación Oficial:** El dígito verificador matemático es **INCORRECTO** (La CURP no cumple con los estándares de control de SEGOB).")
+                        with tab2:
+                            st.markdown("#### Análisis Cifrado de los Dígitos de la CURP")
+                            c_a, c_b = st.columns(2)
+                            with c_a:
+                                st.info(f"📌 **1er Apellido:** Letra `{info_curp['letra_primer_apellido']}` | Vocal `{info_curp['vocal_primer_apellido']}`")
+                                st.info(f"📌 **2do Apellido:** Letra `{info_curp['letra_segundo_apellido']}`")
+                                st.info(f"📌 **Nombre:** Letra `{info_curp['letra_nombre']}`")
+                            with c_b:
+                                st.success(f"📅 **Fecha Cifrada:** {info_curp['fecha_nacimiento']}")
+                                st.success(f"🚻 **Género:** {info_curp['genero']}")
+                                st.success(f"📍 **Entidad:** {info_curp['estado_nacimiento']} ({info_curp['codigo_estado']})")
+                            
+                            if es_matematicamente_valida:
+                                st.success("🔒 **Verificación Oficial:** El dígito verificador matemático es **CORRECTO**.")
+                            else:
+                                st.error("🚨 **Verificación Oficial:** El dígito verificador matemático es **INCORRECTO**.")
 
-                    with tab3:
-                        st.markdown("#### Dictamen General del Alumno")
-                        if not errores:
-                            st.markdown("""
-                                <div class='success-box'>
-                                    <h3>🟢 Validación Exitosa</h3>
-                                    <p>Todos los datos de la base de datos concuerdan perfectamente y la estructura matemática de la CURP ha sido verificada con éxito.</p>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                                <div class='error-box'>
-                                    <h3>🔴 Alerta de Discrepancia Detectada</h3>
-                                    <p>Se encontraron inconsistencias o posibles errores en el registro:</p>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            for err in errores:
+                        with tab3:
+                            st.markdown("#### Dictamen General del Alumno")
+                            if not errores:
+                                st.markdown("""
+                                    <div class='success-box'>
+                                        <h3>🟢 Validación Exitosa</h3>
+                                        <p>Todos los datos concuerdan perfectamente y la estructura matemática es correcta.</p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div class='error-box'>
+                                        <h3>🔴 Alerta de Discrepancia Detectada</h3>
+                                        <p>Se encontraron inconsistencias en el registro:</p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                for err in errores:
                                 st.warning(f"• {err}")
+                    else:
+                        st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
+
+# ==============================================================================
+# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (NOMBRE Y APELLIDOS)
+# ==============================================================================
+else:
+    st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
+    st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja de datos.")
+
+    with st.form("form_auditoria"):
+        col_n1, col_n2 = st.columns(2)
+        with col_n1:
+            input_nombre = st.text_input("Nombre(s):", placeholder="Ej. ALEJANDRO")
+            input_ap_pat = st.text_input("Apellido Paterno:", placeholder="Ej. TORRES")
+        with col_n2:
+            input_ap_mat = st.text_input("Apellido Materno:", placeholder="Ej. REYES")
+            input_genero = st.selectbox("Género:", ["HOMBRE (H)", "MUJER (M)"])
+            
+        col_n3, col_n4 = st.columns(2)
+        with col_n3:
+            input_fecha = st.date_input("Fecha de Nacimiento:")
+        with col_n4:
+            input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
+            
+        btn_auditar = st.form_submit_button("⚖️ Comprobar Coherencia y Alarma CURP", type="primary")
+
+    if btn_auditar:
+        if not input_nombre or not input_ap_pat:
+            st.warning("⚠️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
+        else:
+            genero_letra = "H" if "HOMBRE" in input_genero else "M"
+            prefijo_calculado = calcular_prefijo_teorico(
+                input_nombre, input_ap_pat, input_ap_mat, 
+                input_fecha, genero_letra, input_entidad
+            )
+            
+            st.info(f"⚙️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
+            
+            # Buscar en Google Sheets coincidencias aproximadas por nombre o apellidos
+            if df_alumnos.empty:
+                st.error("La base de datos de Google Sheets está vacía.")
+            else:
+                # Filtrar en la base de datos registros que coincidan con el apellido paterno
+                coincidencias = df_alumnos[df_alumnos['Apellido Paterno'].astype(str).str.upper().str.contains(input_ap_pat.upper(), na=False)]
+                
+                if not coincidencias.empty:
+                    st.success(f"Se encontraron {len(coincidencias)} registros con similitud de apellido en Google Sheets:")
+                    
+                    for idx, row in coincidencias.iterrows():
+                        curp_registrada = str(row.get('CURP', '')).strip().upper()
+                        nombre_reg = row.get('Nombre(s)', '')
+                        pat_reg = row.get('Apellido Paterno', '')
+                        mat_reg = row.get('Apellido Materno', '')
+                        
+                        # Verificar si los primeros caracteres de la CURP registrada coinciden con la lógica teórica
+                        coincide_base = curp_registrada.startswith(prefijo_calculado[:10])
+                        
+                        st.markdown(f"""
+                            <div class='info-card'>
+                                <div class='info-label'>Alumno: {nombre_reg} {pat_reg} {mat_reg}</div>
+                                <div class='info-value'>CURP en Base de Datos: <code>{curp_registrada}</code></div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        if coincide_base:
+                            st.success(f"🟢 **Coherencia Validada:** Los datos demográficos coinciden con la estructura de la CURP registrada.")
+                        else:
+                            st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Requiere revisión manual en gob.mx**.")
                 else:
-                    st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
+                    st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
