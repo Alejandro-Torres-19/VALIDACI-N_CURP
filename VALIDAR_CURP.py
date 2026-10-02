@@ -169,7 +169,6 @@ def obtener_primera_vocal_interna(palabra):
     return 'X'
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    """Calcula la base lógica inicial de la CURP en base a los datos demográficos."""
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
     p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
     p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
@@ -193,7 +192,6 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
         
     g_str = "H" if "H" in str(genero).upper() else "M"
     
-    # Inverso de estados para pasar de Nombre de Estado a Código de 2 letras
     estados_inverso = {v: k for k, v in CODIGOS_ESTADOS.items()}
     ent_limpia = normalizar_texto(entidad)
     ent_str = estados_inverso.get(ent_limpia, "NE")
@@ -362,7 +360,7 @@ if modo_app == "🔍 Modo A: Búsqueda y Validación por CURP":
                                     </div>
                                 """, unsafe_allow_html=True)
                                 for err in errores:
-                                st.warning(f"• {err}")
+                                    st.warning(f"• {err}")
                     else:
                         st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
 
@@ -402,11 +400,9 @@ else:
             
             st.info(f"⚙️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
             
-            # Buscar en Google Sheets coincidencias aproximadas por nombre o apellidos
             if df_alumnos.empty:
                 st.error("La base de datos de Google Sheets está vacía.")
             else:
-                # Filtrar en la base de datos registros que coincidan con el apellido paterno
                 coincidencias = df_alumnos[df_alumnos['Apellido Paterno'].astype(str).str.upper().str.contains(input_ap_pat.upper(), na=False)]
                 
                 if not coincidencias.empty:
@@ -418,7 +414,6 @@ else:
                         pat_reg = row.get('Apellido Paterno', '')
                         mat_reg = row.get('Apellido Materno', '')
                         
-                        # Verificar si los primeros caracteres de la CURP registrada coinciden con la lógica teórica
                         coincide_base = curp_registrada.startswith(prefijo_calculado[:10])
                         
                         st.markdown(f"""
