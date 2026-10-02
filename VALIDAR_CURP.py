@@ -21,10 +21,18 @@ def conectar_google_sheets():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    credentials_dict = dict(st.secrets["gcp_service_account"])
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
+    
+    # Convertimos los secrets de Streamlit a un diccionario estándar de Python
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    
+    # Asegurarnos de que el private_key mantenga los saltos de línea correctos si viene comprimido
+    if "private_key" in creds_dict:
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
     
+    # Abrimos la hoja de cálculo por su nombre exacto
     spreadsheet = client.open("BD_Alumnos") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
@@ -40,7 +48,8 @@ try:
     else:
         df_alumnos = pd.DataFrame()
 except Exception as e:
-    st.error(f"Error detallado al conectar con Google Sheets: {e}")
+    # Mostramos el tipo de error y los detalles si vuelve a ocurrir para depurar rápido
+    st.error(f"Error detallado al conectar con Google Sheets: {type(e).__name__} - {e}")
     df_alumnos = pd.DataFrame()
 
 
