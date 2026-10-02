@@ -1,20 +1,35 @@
-import os
 import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as condiciones
+import re
+from rapidfuzz import process, fuzz
 
-# --- CONFIGURACIÓN DE LA PÁGINA EN STREAMLIT ---
-st.set_page_config(page_title="Validador CURP Alumnos", page_icon="🎓", layout="centered")
+# --- CONFIGURACIÓN DE LA PÁGINA ---
+st.set_page_config(
+    page_title="Validador Beta Escolar - CURP", 
+    page_icon="🎓", 
+    layout="centered"
+)
 
-st.markdown("<h1 style='text-align: center;'>🎓 Validador CURP Alumnos - RENAPO 🎓</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🎓 Validador Inteligente de Alumnos (Beta) 🎓</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray;'>Sistema interno con control de errores de dedo y validación cruzada</p>", unsafe_allow_html=True)
 st.write("")
 
-# --- CONEXIÓN A GOOGLE SHEETS USANDO SECRETS ---
+# --- DICCIONARIO OFICIAL DE CÓDIGOS DE ENTIDAD (CURP) ---
+CODIGOS_ESTADOS = {
+    "AS": "AGUASCALIENTES", "BC": "BAJA CALIFORNIA", "BS": "BAJA CALIFORNIA SUR",
+    "CC": "CAMPECHE", "CL": "COAHUILA", "CM": "COLIMA", "CS": "CHIAPAS",
+    "CH": "CHIHUAHUA", "DF": "CIUDAD DE MÉXICO", "DG": "DURANGO", "GT": "GUANAJUATO",
+    "GR": "GUERRERO", "HG": "HIDALGO", "JC": "JALISCO", "MC": "ESTADO DE MÉXICO",
+    "MN": "MICHOACÁN", "MS": "MORELOS", "NT": "NAYARIT", "NL": "NUEVO LEÓN",
+    "OC": "OAXACA", "PL": "PUEBLA", "QT": "QUERÉTARO", "QR": "QUINTANA ROO",
+    "SL": "SAN LUIS POTOSÍ", "SP": "SINALOA", "SR": "SONORA", "TC": "TABASCO",
+    "TS": "TAMAULIPAS", "TL": "TLAXCALA", "VZ": "VERACRUZ", "YN": "YUCATÁN", "ZS": "ZACATECAS",
+    "NE": "NACIDO EN EL EXTRANJERO"
+}
+
+# --- CONEXIÓN A GOOGLE SHEETS ("prueba validacion curp") ---
 @st.cache_resource
 def conectar_google_sheets():
     scopes = [
@@ -22,10 +37,8 @@ def conectar_google_sheets():
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # Copiamos el diccionario de secretos
+    # Utiliza tus credenciales configuradas en st.secrets (o archivo .streamlit/secrets.toml local)
     credentials_dict = dict(st.secrets["gcp_service_account"])
-    
-    # Decodificación robusta para forzar los saltos de línea reales en la llave privada
     pk = credentials_dict.get("private_key", "")
     try:
         pk = pk.encode().decode('unicode-escape')
@@ -36,123 +49,106 @@ def conectar_google_sheets():
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     client = gspread.authorize(creds)
     
+    # Abre la hoja con el nombre exacto que especificaste
     spreadsheet = client.open("prueba validacion curp") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
 
-# Cargamos los datos de la hoja evitando errores de celdas vacías
-try:
-    ws = conectar_google_sheets()
-    data = ws.get_all_values()
-    if len(data) > 1:
-        headers = [h.strip() for h in data[0] if h.strip() != '']
-        df_alumnos = pd.DataFrame(data[1:], columns=data[0][:len(data[1])])
-        df_alumnos = df_alumnos.loc[:, df_alumnos.columns != '']
-    else:
-        df_alumnos = pd.DataFrame()
-except Exception as e:
-    st.error(f"Error detallado al conectar con Google Sheets: {type(e).__name__} - {e}")
-    df_alumnos = pd.DataFrame()
-
-
-# --- FUNCIÓN DE SCRAPING CON UNDETECTED-CHROMEDRIVER ---
-@st.cache_data(ttl=3600)
-def consultar_renapo_selenium(curp_a_buscar):
-    options = uc.ChromeOptions()
-    
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    
-    driver = None
-    datos_extraidos = None
-    
+# Carga segura de datos
+@st.cache_data(ttl=600)
+def cargar_datos():
     try:
-        if os.path.exists("/usr/bin/chromium"):
-            options.binary_location = "/usr/bin/chromium"
-            driver = uc.Chrome(options=options, headless=True, use_subprocess=True)
+        ws = conectar_google_sheets()
+        data = ws.get_all_values()
+        if len(data) > 1:
+            df = pd.DataFrame(data[1:], columns=data[0][:len(data[1])])
+            df = df.loc[:, df.columns != ''] # Limpiar columnas vacías
+            return df
         else:
-            driver = uc.Chrome(options=options, headless=True, use_subprocess=True)
-            
-        driver.get("https://www.gob.mx/curp/")
-        
-        input_curp = WebDriverWait(driver, 15).until(
-            condiciones.presence_of_element_located((By.ID, "curp"))
-        )
-        input_curp.clear()
-        input_curp.send_keys(curp_a_buscar)
-        
-        boton_buscar = WebDriverWait(driver, 10).until(
-            condiciones.element_to_be_clickable((By.ID, "search-curp"))
-        )
-        boton_buscar.click()
-        
-        WebDriverWait(driver, 15).until(
-            condiciones.presence_of_element_located((By.CLASS_NAME, "datos-solicitante"))
-        )
-        
-        nombres = driver.find_element(By.XPATH, "//td[contains(text(), 'Nombre(s):')]/following-sibling::td").text
-        primer_apellido = driver.find_element(By.XPATH, "//td[contains(text(), 'Primer apellido:')]/following-sibling::td").text
-        segundo_apellido = driver.find_element(By.XPATH, "//td[contains(text(), 'Segundo apellido:')]/following-sibling::td").text
-        
-        datos_extraidos = {
-            "nombres": nombres.strip().upper(),
-            "primer_apellido": primer_apellido.strip().upper(),
-            "segundo_apellido": segundo_apellido.strip().upper()
-        }
-        
+            return pd.DataFrame()
     except Exception as e:
-        print(f"Error en el proceso de scraping con undetected-chromedriver: {e}")
-        datos_extraidos = None
-        
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass
-        
-    return datos_extraidos
+        st.error(f"Error al conectar con Google Sheets: {e}")
+        return pd.DataFrame()
 
+df_alumnos = cargar_datos()
 
-# --- INTERFAZ DE USUARIO EN STREAMLIT ---
-curp_input = st.text_input("Introduce CURP a verificar:").strip().upper()
+# --- INTERFAZ DE USUARIO ---
+st.markdown("### Ingrese o escanee la CURP del alumno:")
+curp_input = st.text_input("CURP a verificar:", placeholder="Ej. CUEA140525MMCRSLB4").strip().upper()
 
-if st.button("Verificar Alumno"):
-    if curp_input:
-        with st.spinner("Consultando en portal oficial de RENAPO de forma segura..."):
-            datos_gobierno = consultar_renapo_selenium(curp_input)
-            
-        if datos_gobierno:
-            st.success("¡CURP verificada exitosamente en el portal oficial!")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Datos en Base de Datos**")
-                if not df_alumnos.empty and 'CURP' in df_alumnos.columns:
-                    df_alumnos['CURP_clean'] = df_alumnos['CURP'].astype(str).str.strip().str.upper()
-                    resultado_db = df_alumnos[df_alumnos['CURP_clean'] == curp_input]
-                    
-                    if not resultado_db.empty:
-                        st.write(f"Nombre(s): {resultado_db.iloc[0]['Nombre(s)']}")
-                        st.write(f"Apellido Paterno: {resultado_db.iloc[0]['Apellido Paterno']}")
-                        st.write(f"Apellido Materno: {resultado_db.iloc[0]['Apellido Materno']}")
-                        st.write(f"Grado: {resultado_db.iloc[0]['Grado']}")
-                        st.write(f"Grupo: {resultado_db.iloc[0]['Grupo']}")
-                    else:
-                        st.warning("El CURP es válido en RENAPO, pero no se encontró en la base de datos de Google Sheets.")
-                else:
-                    st.error("La base de datos está vacía o no tiene la columna CURP.")
-                    
-            with col2:
-                st.markdown("**Datos Oficiales RENAPO**")
-                st.write(f"Nombre(s): {datos_gobierno['nombres']}")
-                st.write(f"Apellido Paterno: {datos_gobierno['primer_apellido']}")
-                st.write(f"Apellido Materno: {datos_gobierno['segundo_apellido']}")
-                
-        else:
-            st.error("No se pudo obtener respuesta del portal oficial de la CURP. El sitio podría requerir validación manual o estar saturado.")
+# Expresión regular oficial de 18 caracteres
+patron_curp = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$')
+
+if st.button("Verificar e Inspeccionar Alumno", type="primary"):
+    if not curp_input:
+        st.warning("Por favor, introduce una CURP.")
     else:
-        st.warning("Por favor, introduce una CURP antes de verificar.")
+        # 1. Validación Estructural (Regex)
+        if not patron_curp.match(curp_input):
+            st.error("🔴 **CURP Inválida:** La estructura no cumple con los 18 caracteres oficiales exigidos por RENAPO (letras, fecha AAMMDD, género y homoclave).")
+        else:
+            st.success("🟢 **Formato Correcto:** La estructura matemática de 18 caracteres es válida.")
+            
+            if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+                st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+            else:
+                # Limpiar datos de la base de tabla para búsqueda
+                lista_curps_db = df_alumnos['CURP'].astype(str).str.strip().str.upper().tolist()
+                
+                # 2. Búsqueda exacta o tolerante a errores de dedo (Fuzzy Matching)
+                match_exacto = df_alumnos[df_alumnos['CURP'].str.strip().str.upper() == curp_input]
+                
+                resultado = None
+                if not match_exacto.empty:
+                    resultado = match_exacto.iloc[0]
+                    st.info("✨ **Coincidencia Exacta:** Encontrada textualmente en la base de datos institucional.")
+                else:
+                    # Búsqueda difusa para detectar errores de dedo leves (Umbral de 85% de similitud)
+                    mejor_match, puntuacion, indice = process.extractOne(
+                        curp_input, 
+                        lista_curps_db, 
+                        scorer=fuzz.ratio
+                    )
+                    
+                    if puntuacion >= 85:
+                        st.warning(f"⚠️ **Atención - Error de dedo probable:** No existe exactamente esa CURP, pero se detectó un registro muy cercano (Similitud: {puntuacion:.1f}%).")
+                        resultado = df_alumnos.iloc[indice]
+                        st.write(f"CURP sugerida en base de datos: **{resultado.get('CURP')}**")
+                    else:
+                        st.error("🔴 **No Registrado:** La CURP tiene buen formato, pero no existe ningún alumno asociado en la base de datos de Google Sheets.")
+                
+                # 3. Validación Cruzada Interna (Intra-CURP) si se encontró al alumno
+                if resultado is not None:
+                    st.markdown("---")
+                    st.markdown("### 📋 Ficha de Control Escolar e Inspección")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Nombre(s):** {resultado.get('Nombre(s)', 'N/A')}")
+                        st.write(f"**Apellido Paterno:** {resultado.get('Apellido Paterno', 'N/A')}")
+                        st.write(f"**Apellido Materno:** {resultado.get('Apellido Materno', 'N/A')}")
+                    with col2:
+                        st.write(f"**Grado:** {resultado.get('Grado', 'N/A')}")
+                        st.write(f"**Grupo:** {resultado.get('Grupo', 'N/A')}")
+                        st.write(f"**CURP Evaluada:** {resultado.get('CURP', 'N/A')}")
+                    
+                    st.markdown("#### 🔍 Auditoría de Consistencia Interna:")
+                    
+                    # Extraer el código de estado de las posiciones 11 y 12 de la CURP ingresada
+                    codigo_estado_curp = curp_input[11:13]
+                    estado_en_curp = CODIGOS_ESTADOS.get(codigo_estado_curp, "DESCONOCIDO")
+                    
+                    # Obtener el estado registrado en la base de datos del alumno
+                    estado_en_bd = str(resultado.get('Estado de Nacimiento', '')).strip().upper()
+                    
+                    st.write(f"- Estado extraído matemáticamente de la CURP: **{estado_en_curp}** (`{codigo_estado_curp}`)")
+                    st.write(f"- Estado registrado en la celda de Google Sheets: **{estado_en_bd if estado_en_bd else 'No especificado'}**")
+                    
+                    # Comparación lógica de consistencia
+                    if estado_en_bd and estado_en_curp != estado_en_bd:
+                        st.markdown(
+                            f"🔴 **ALERTA DE INCONSISTENCIA:** El estado de nacimiento oficial cifrado en la CURP (**{estado_en_curp}**) "
+                            f"no coincide con el registrado en la base de datos (**{estado_en_bd}**). **Se requiere revisión manual.**"
+                        )
+                    else:
+                        st.markdown("🟢 **Consistencia Verificada:** Los datos internos de la CURP concuerdan con el estado de nacimiento registrado.")
