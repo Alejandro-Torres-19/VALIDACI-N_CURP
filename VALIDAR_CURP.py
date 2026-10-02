@@ -163,24 +163,34 @@ if st.button("Ejecutar Análisis y Cruce de Alumno", type="primary"):
                     st.markdown("---")
                     st.markdown("### 📋 Perfil del Alumno Asociado y Validación Analítica")
                     
-                    # Capturamos los datos utilizando las columnas reales de Google Sheets
                     nombre_db = str(resultado.get('Nombre(s)', '')).strip().upper()
                     ap_p_db = str(resultado.get('Apellido Paterno', '')).strip().upper()
                     ap_m_db = str(resultado.get('Apellido Materno', '')).strip().upper()
                     
-                    # Leemos la celda de fecha proveniente de Google Sheets
+                    # Leemos la fecha de Google Sheets
                     fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
+                    estado_db = info_curp['estado_nacimiento']
                     
-                    # Respaldo inteligente: Si la fórmula de Sheets no entrega valor a la API, usamos la fecha matemática de la CURP
-                    if not fecha_db or fecha_db == "nan" or fecha_db == "":
-                        fecha_mostrar = f"{info_curp['fecha_nacimiento']} (Calculada por CURP/Fórmula)"
-                        coincide_fecha = True
+                    # Normalización estricta de fecha para hacer la comparación infalible
+                    coincide_fecha = False
+                    fecha_mostrar = fecha_db
+                    
+                    if fecha_db and fecha_db != "nan" and fecha_db != "":
+                        try:
+                            # Convertimos la fecha leída de Sheets (ej. D/M/YYYY o YYYY-MM-DD) a formato estándar YYYY-MM-DD
+                            fecha_dt = pd.to_datetime(fecha_db, dayfirst=True, errors='coerce')
+                            if pd.notna(fecha_dt):
+                                fecha_db_norm = fecha_dt.strftime('%Y-%m-%d')
+                                fecha_mostrar = fecha_db_norm
+                                coincide_fecha = (fecha_db_norm == info_curp['fecha_nacimiento'])
+                            else:
+                                coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
+                        except Exception:
+                            coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
                     else:
-                        fecha_mostrar = fecha_db
-                        coincide_fecha = True
+                        fecha_mostrar = "No disponible"
+                        coincide_fecha = False
 
-                    estado_db = info_curp['estado_nacimiento'] # Obtenido de la CURP
-                    
                     col_a, col_b = st.columns(2)
                     with col_a:
                         st.write(f"**Nombre(s) en BD:** {resultado.get('Nombre(s)', 'N/A')}")
@@ -193,7 +203,7 @@ if st.button("Ejecutar Análisis y Cruce de Alumno", type="primary"):
                     
                     st.markdown("#### ⚖️ Auditoría de Coherencia de Datos y Fecha:")
                     
-                    # Verificaciones lógicas
+                    # Verificaciones lógicas rigurosas
                     coincide_ap_p = ap_p_db.startswith(info_curp['letra_primer_apellido']) if ap_p_db else False
                     coincide_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
                     
@@ -201,6 +211,8 @@ if st.button("Ejecutar Análisis y Cruce de Alumno", type="primary"):
                         st.markdown("🟢 **Validación Analítica Exitosa:** Los datos, las iniciales y la fecha de nacimiento coinciden perfectamente con la estructura oficial de la CURP.")
                     else:
                         st.markdown("🔴 **ALERTA DE DISCREPANCIA ESTRUCTURAL:**")
+                        if not coincide_fecha:
+                            st.write(f"- 📅 **Discrepancia en Fecha:** La fecha en Google Sheets (**{fecha_mostrar}**) **no coincide** con la fecha calculada matemáticamente de los dígitos de la CURP (**{info_curp['fecha_nacimiento']}**).")
                         if not coincide_ap_p:
                             st.write(f"- La letra del primer apellido en la CURP (`{info_curp['letra_primer_apellido']}`) no coincide con el apellido guardado (`{ap_p_db}`).")
                         if not coincide_nom:
