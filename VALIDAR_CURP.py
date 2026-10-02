@@ -36,7 +36,7 @@ def conectar_google_sheets():
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     client = gspread.authorize(creds)
     
-    spreadsheet = client.open("BD_Alumnos") 
+    spreadsheet = client.open("prueba validacion curp") 
     worksheet = spreadsheet.get_worksheet(0)
     return worksheet
 
