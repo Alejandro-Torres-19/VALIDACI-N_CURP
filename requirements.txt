@@ -4,4 +4,5 @@ gspread
 google-auth
 selenium
 webdriver-manager
+setuptools
 undetected-chromedriver
