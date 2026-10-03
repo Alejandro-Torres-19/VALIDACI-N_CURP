@@ -6,7 +6,6 @@ import re
 import unicodedata
 import datetime
 from rapidfuzz import process, fuzz
-import io
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
@@ -21,13 +20,11 @@ with st.sidebar:
     st.markdown("Sistema de Control Escolar Alpha")
     st.markdown("---")
     
-    # Selector de Tema Discreto
     modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro (Oficina)", "☀️ Modo Claro (Institucional)"], horizontal=False)
     st.markdown("---")
 
 # Estilos CSS dinámicos según el tema seleccionado
 if "Oscuro" in modo_visual:
-    # Paleta Oscura (Corporate Blue Dark)
     bg_card = "#1E293B"
     border_card = "#334155"
     text_main = "#F8FAFC"
@@ -40,7 +37,6 @@ if "Oscuro" in modo_visual:
     error_border = "#FECACA"
     error_color = "#991B1B"
 else:
-    # Paleta Clara (Corporate Blue Light / Gobierno)
     bg_card = "#FFFFFF"
     border_card = "#CBD5E1"
     text_main = "#0F172A"
@@ -55,7 +51,6 @@ else:
 
 st.markdown(f"""
     <style>
-        /* --- ANCHO DE BARRA LATERAL --- */
         [data-testid="stSidebar"] {{
             min-width: 310px !important;
             max-width: 350px !important;
@@ -65,7 +60,6 @@ st.markdown(f"""
         .main-title {{ font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }}
         .sub-title {{ font-size: 1.1rem; color: #4B5563; text-align: left; margin-bottom: 25px; }}
         
-        /* Tarjetas de información uniformes */
         .info-card {{
             background-color: {bg_card};
             border: 1px solid {border_card};
@@ -100,7 +94,6 @@ st.markdown(f"""
             margin-bottom: 20px;
         }}
 
-        /* --- BOTONES Y OPCIONES EN LA BARRA LATERAL --- */
         div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
             font-size: 1.15rem !important;
             font-weight: 600 !important;
@@ -118,7 +111,6 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- DICCIONARIO OFICIAL DE CÓDIGOS DE ENTIDAD (CURP) ---
 CODIGOS_ESTADOS = {
     "AS": "AGUASCALIENTES", "BC": "BAJA CALIFORNIA", "BS": "BAJA CALIFORNIA SUR",
     "CC": "CAMPECHE", "CL": "COAHUILA", "CM": "COLIMA", "CS": "CHIAPAS",
@@ -131,7 +123,6 @@ CODIGOS_ESTADOS = {
     "NE": "NACIDO EN EL EXTRANJERO"
 }
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -172,7 +163,6 @@ def cargar_datos():
 
 df_alumnos, conexion_activa = cargar_datos()
 
-# --- FUNCIONES AUXILIARES DE MATEMÁTICA Y CURP ---
 def validar_digito_verificador_curp(curp: str) -> bool:
     curp = curp.strip().upper()
     if len(curp) != 18:
@@ -226,7 +216,7 @@ def obtener_primera_vocal_interna(palabra):
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
     p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
@@ -254,7 +244,6 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
     
     return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
 
-# --- CONTINUACIÓN DE LA BARRA LATERAL (MENÚ Y ESTADO) ---
 with st.sidebar:
     modo_app = st.radio(
         "Menú de Operaciones:",
@@ -291,20 +280,15 @@ with st.sidebar:
         st.cache_resource.clear()
         st.rerun()
 
-# --- ENCABEZADO PRINCIPAL ---
 st.markdown("<h1 class='main-title'>🎓 Validador y Analizador Integral de CURP</h1>", unsafe_allow_html=True)
 st.markdown("<p class='sub-title'>Plataforma institucional de validación y control escolar automatizado</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ==============================================================================
-# MODO A: BÚSQUEDA Y VALIDACIÓN POR CURP DIRECTA
-# ==============================================================================
 if modo_app == "🔍 Modo A: Búsqueda por CURP":
     st.markdown("### 🔍 Validación Directa por CURP")
     st.write("Introduce una CURP para verificar su autenticidad matemática y cruzarla con el expediente del alumno.")
     
     curp_input = st.text_input("", placeholder="Ej. CAHD140521HMCDRYA3", label_visibility="collapsed").strip().upper()
-
     patron_curp = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$')
 
     if st.button("🚀 Ejecutar Validación por CURP", type="primary", use_container_width=True):
@@ -364,7 +348,7 @@ if modo_app == "🔍 Modo A: Búsqueda por CURP":
                             
                             errores = []
                             if not es_matematicamente_valida:
-                                errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso (posible CURP inventada o alterada).")
+                                errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso.")
                             if not coincide_fecha:
                                 errores.append(f"Fecha en Sheets ({fecha_mostrar}) no coincide con la CURP ({info_curp['fecha_nacimiento']}).")
                             if not val_ap_p:
@@ -456,9 +440,6 @@ if modo_app == "🔍 Modo A: Búsqueda por CURP":
                         else:
                             st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
 
-# ==============================================================================
-# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (MANUAL) - CON GRADO, GRUPO Y CCT
-# ==============================================================================
 elif modo_app == "📝 Modo B: Auditoría Demográfica":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
     st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja de datos.")
@@ -482,7 +463,6 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
             input_anio = st.number_input("Año", min_value=2006, max_value=2026, value=2010)
             
         input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
-            
         btn_auditar = st.form_submit_button("⚖️ Comprobar Coherencia y Alarma CURP", type="primary")
 
     if btn_auditar:
@@ -491,7 +471,6 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
         else:
             with st.spinner("⚙️ Generando prefijo teórico y contrastando base de datos..."):
                 input_fecha = datetime.date(int(input_anio), int(input_mes), int(input_dia))
-                
                 genero_letra = "H" if "HOMBRE" in input_genero else "M"
                 prefijo_calculado = calcular_prefijo_teorico(
                     input_nombre, input_ap_pat, input_ap_mat, 
@@ -534,13 +513,10 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
                             if coincide_base:
                                 st.success(f"🟢 **Coherencia Validada:** Los datos demográficos coinciden con la estructura de la CURP registrada.")
                             else:
-                                st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Requiere revisión manual en gob.mx**.")
+                                st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Verifica si la entidad o fecha de nacimiento en Google Sheets difiere de la CURP**.")
                     else:
                         st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
 
-# ==============================================================================
-# MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA (AMIGABLE)
-# ==============================================================================
 elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
     st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
@@ -561,11 +537,9 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                 cantidad = len(alumnos_encontrados)
                 
             if cantidad == 0:
-                st.warning("⚠️️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
-            
+                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
             elif cantidad == 1:
                 alumno = alumnos_encontrados.iloc[0]
-                
                 nom_g = str(alumno.get('Nombre(s)', '')).strip()
                 pat_g = str(alumno.get('Apellido Paterno', '')).strip()
                 mat_g = str(alumno.get('Apellido Materno', '')).strip()
@@ -573,10 +547,9 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                 grado_g = str(alumno.get('Grado', '')).strip()
                 grupo_g = str(alumno.get('Grupo', '')).strip()
                 cct_g = str(alumno.get('CCT', '')).strip()
-                
                 nombre_completo = f"{nom_g} {pat_g} {mat_g}"
-                st.success(f"🎯 ¡Alumno encontrado de forma única!")
                 
+                st.success(f"🎯 ¡Alumno encontrado de forma única!")
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
                 st.markdown(f"""
@@ -623,10 +596,8 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                             <p>El dígito verificador de esta CURP es falso (posible CURP inventada o alterada).</p>
                         </div>
                     """, unsafe_allow_html=True)
-                    
             else:
                 st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
-                
                 opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
                     n = str(row.get('Nombre(s)', '')).strip()
@@ -634,12 +605,10 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     m = str(row.get('Apellido Materno', '')).strip()
                     g = str(row.get('Grado', '')).strip()
                     gr = str(row.get('Grupo', '')).strip()
-                    
                     etiqueta_amigable = f"{p} {m}, {n}  —  [{g}° '{gr}']"
                     opciones_map[etiqueta_amigable] = idx
                     
                 seleccion_usuario = st.selectbox("Elige el registro correcto de la lista:", list(opciones_map.keys()))
-                
                 idx_real = opciones_map[seleccion_usuario]
                 alumno = df_alumnos.loc[idx_real]
                 
@@ -651,7 +620,6 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                 grupo_g = str(alumno.get('Grupo', '')).strip()
                 cct_g = str(alumno.get('CCT', '')).strip()
                 nombre_completo = f"{nom_g} {pat_g} {mat_g}"
-                
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
                 st.write("")
@@ -696,13 +664,10 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta Directiva</h3>
-                            <p>El alumno seleccionado tiene una CURP con errores en el dígito verificador (Requiere revisión manual).</p>
+                            <p>El alumno seleccionado tiene una CURP con errores en el dígito verificador.</p>
                         </div>
                     """, unsafe_allow_html=True)
 
-# ==============================================================================
-# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS (CON EXPORTACIÓN EXCEL)
-# ==============================================================================
 elif modo_app == "📊 Modo D: Auditoría Masiva":
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
     st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero.")
@@ -713,11 +678,9 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
         else:
             with st.spinner("📊 Analizando masivamente la base de datos escolar..."):
                 resultados_masivos = []
-                
                 for index, row in df_alumnos.iterrows():
                     curp_val = str(row.get('CURP', '')).strip().upper()
                     nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
-                    
                     grado_val = row.get('Grado', '')
                     grupo_val = row.get('Grupo', '')
                     
@@ -739,7 +702,6 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             total_invalidos = len(df_reporte[df_reporte['_es_valido_bool'] == False])
             total_validos = len(df_reporte[df_reporte['_es_valido_bool'] == True])
             
-            # Tarjetas de Métricas Ejecutivas (KPI Cards)
             st.markdown(f"""
                 <div style="display: flex; gap: 15px; margin-bottom: 25px;">
                     <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
@@ -759,17 +721,13 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
-            # Botón de Descarga Excel (Reporte Ejecutivo)
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_mostrar.to_excel(writer, index=False, sheet_name='Auditoria_CURP')
-            excel_data = output.getvalue()
-
+            # Exportación a formato CSV universal (100% compatible sin librerías adicionales)
+            csv_data = df_mostrar.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Descargar Reporte Ejecutivo en Excel",
-                data=excel_data,
-                file_name="Reporte_Auditoria_CURP.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                label="📥 Descargar Reporte Ejecutivo en CSV (Excel)",
+                data=csv_data,
+                file_name="Reporte_Auditoria_CURP.csv",
+                mime="text/csv",
                 use_container_width=True
             )
             st.write("")
@@ -785,9 +743,6 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
                 hide_index=True
             )
 
-# ==============================================================================
-# MODO E: ANTIFRAUDE ESCOLAR (DUPLICADOS Y HOMOCLAVES) - CON EXPORTACIÓN EXCEL
-# ==============================================================================
 else:
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
     st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
@@ -802,14 +757,12 @@ else:
                 
                 temp_df = df_alumnos.copy()
                 temp_df['CURP_LIMPIA'] = temp_df['CURP'].astype(str).str.strip().str.upper()
-                
                 validas_curp = temp_df[temp_df['CURP_LIMPIA'] != '']
                 duplicados_curp = validas_curp[validas_curp.duplicated(subset=['CURP_LIMPIA'], keep=False)]
                 
                 df_dup_export = pd.DataFrame()
                 if not duplicados_curp.empty:
                     st.error(f"🚨 **¡Alerta Roja! Se encontraron {len(duplicados_curp)} registros con CURPs idénticas compartidas entre diferentes alumnos:**")
-                    
                     tabla_dup = []
                     for _, row in duplicados_curp.iterrows():
                         nom = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
@@ -855,10 +808,8 @@ else:
                             par_key = tuple(sorted([nom_a, nom_b]))
                             if par_key not in nombres_vistos:
                                 nombres_vistos.add(par_key)
-                                
                                 row_a = df_alumnos.iloc[i]
                                 row_b = df_alumnos.iloc[j]
-                                
                                 parejas_similares.append({
                                     "Registro 1": f"{nom_a} ({row_a.get('Grado', '')}° '{row_a.get('Grupo', '')}')",
                                     "Registro 2": f"{nom_b} ({row_b.get('Grado', '')}° '{row_b.get('Grupo', '')}')",
@@ -868,7 +819,7 @@ else:
                 df_sim_export = pd.DataFrame()
                 if parejas_similares:
                     df_sim_export = pd.DataFrame(parejas_similares)
-                    st.warning(f"⚠️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares** (posible duplicidad de captura):")
+                    st.warning(f"⚠️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares**:")
                     st.dataframe(df_sim_export, use_container_width=True, hide_index=True)
                 else:
                     st.markdown("""
@@ -878,21 +829,14 @@ else:
                         </div>
                     """, unsafe_allow_html=True)
 
-                # Botón de Descarga Antifraude Excel si hay hallazgos
                 if not df_dup_export.empty or not df_sim_export.empty:
                     st.write("")
-                    output_anti = io.BytesIO()
-                    with pd.ExcelWriter(output_anti, engine='openpyxl') as writer:
-                        if not df_dup_export.empty:
-                            df_dup_export.to_excel(writer, index=False, sheet_name='CURPs_Duplicadas')
-                        if not df_sim_export.empty:
-                            df_sim_export.to_excel(writer, index=False, sheet_name='Nombres_Similares')
-                    excel_anti_data = output_anti.getvalue()
-
+                    # Combinar en un CSV exportable universal
+                    csv_anti = df_dup_export.to_csv(index=False).encode('utf-8') if not df_dup_export.empty else df_sim_export.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label="📥 Descargar Reporte Antifraude en Excel",
-                        data=excel_anti_data,
-                        file_name="Reporte_Antifraude_Escolar.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        label="📥 Descargar Reporte Antifraude en CSV",
+                        data=csv_anti,
+                        file_name="Reporte_Antifraude_Escolar.csv",
+                        mime="text/csv",
                         use_container_width=True
                     )
