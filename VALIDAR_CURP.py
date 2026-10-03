@@ -6,6 +6,7 @@ import re
 import unicodedata
 import datetime
 from rapidfuzz import process, fuzz
+import altair as alt
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
@@ -20,7 +21,6 @@ with st.sidebar:
     st.markdown("Sistema de Control Escolar")
     st.markdown("---")
     
-    # Tema visual sin paréntesis
     modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro", "☀️ Modo Claro"], horizontal=False)
     st.markdown("---")
 
@@ -96,7 +96,6 @@ st.markdown(f"""
             margin-bottom: 20px;
         }}
 
-        /* --- BOTONES Y OPCIONES MÁS GRANDES Y VISIBLES EN LA BARRA LATERAL --- */
         div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
             font-size: 1.2rem !important;
             font-weight: 600 !important;
@@ -248,7 +247,6 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
     return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
 
 with st.sidebar:
-    # Menú de operaciones sin la palabra "Modo" ni letras asignadas
     modo_app = st.radio(
         "Menú de Operaciones:",
         [
@@ -482,7 +480,7 @@ elif modo_app == "📝 Auditoría Demográfica":
                     input_fecha, genero_letra, input_entidad
                 )
                 
-                st.info(f"⚙️️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
+                st.info(f"⚙️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
                 
                 if df_alumnos.empty:
                     st.error("La base de datos de Google Sheets está vacía.")
@@ -845,7 +843,7 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                     )
 
 # ==============================================================================
-# MODO F: DASHBOARD DIRECTIVO INTERACTIVO (CON GRÁFICAS NATIVAS DE STREAMLIT)
+# MODO F: DASHBOARD DIRECTIVO INTERACTIVO (MEJORADO CON ALTAIR Y FILTROS)
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
@@ -884,27 +882,37 @@ else:
         col_d1, col_d2 = st.columns(2)
 
         with col_d1:
-            st.markdown("#### 📊 Distribución Interactiva por Grado y Grupo")
+            st.markdown("#### 📊 Distribución por Grado y Grupo")
             if 'Grado' in df_alumnos.columns and 'Grupo' in df_alumnos.columns:
                 df_alumnos['Grado_Grupo'] = df_alumnos['Grado'].astype(str) + "° '" + df_alumnos['Grupo'].astype(str) + "'"
                 conteo_grupos = df_alumnos['Grado_Grupo'].value_counts().reset_index()
                 conteo_grupos.columns = ['Grado_Grupo', 'Total']
-                conteo_grupos = conteo_grupos.set_index('Grado_Grupo')
                 
-                # Gráfica de barras interactiva nativa de Streamlit
-                st.bar_chart(conteo_grupos)
+                # Gráfica de barras Altair con subtítulos legibles y claros
+                chart_grupos = alt.Chart(conteo_grupos).mark_bar(color='#3B82F6', cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                    x=alt.X('Grado_Grupo:N', sort=None, title='Grado y Grupo', axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y('Total:Q', title='Total de Alumnos'),
+                    tooltip=['Grado_Grupo', 'Total']
+                ).properties(height=300)
+                st.altair_chart(chart_grupos, use_container_width=True)
             else:
                 st.info("No se encontraron las columnas 'Grado' o 'Grupo' en la hoja de cálculo.")
 
         with col_d2:
-            st.markdown("#### 🥧 Estado de Salud de las CURPs")
+            st.markdown("#### 🟢 Estado de Salud de las CURPs")
             df_salud = pd.DataFrame({
                 'Estado': ['Válidas (Correctas)', 'Inválidas / Alerta'],
                 'Cantidad': [validas_count, invalidas_count]
-            }).set_index('Estado')
+            })
             
-            # Gráfica de área/línea interactiva nativa de Streamlit
-            st.area_chart(df_salud)
+            # Gráfica de barras condicional: Verde para válidas, Rojo para inválidas
+            chart_salud = alt.Chart(df_salud).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                x=alt.X('Estado:N', sort=None, title='', axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('Cantidad:Q', title='Cantidad de Alumnos'),
+                color=alt.Color('Estado:N', scale=alt.Scale(domain=['Válidas (Correctas)', 'Inválidas / Alerta'], range=['#10B981', '#EF4444']), legend=None),
+                tooltip=['Estado', 'Cantidad']
+            ).properties(height=300)
+            st.altair_chart(chart_salud, use_container_width=True)
 
         st.markdown("---")
         st.markdown("#### 🗺️ Resumen de Procedencia por Entidad Federativa")
@@ -921,8 +929,26 @@ else:
             df_entidades = pd.DataFrame(entidades_encontradas, columns=['Entidad'])
             conteo_entidades = df_entidades['Entidad'].value_counts().reset_index()
             conteo_entidades.columns = ['Entidad Federativa', 'Alumnos']
-            conteo_entidades = conteo_entidades.set_index('Entidad Federativa')
             
-            st.bar_chart(conteo_entidades)
+            # Menú desplegable estilo filtro de Excel (Multiselect)
+            todas_entidades = sorted(conteo_entidades['Entidad Federativa'].unique().tolist())
+            entidades_seleccionadas = st.multiselect(
+                "🔍 Filtrar Entidades Federativas (Filtro tipo Excel):",
+                options=todas_entidades,
+                default=todas_entidades
+            )
+            
+            # Filtrar el DataFrame según la selección del usuario
+            df_filtrado = conteo_entidades[conteo_entidades['Entidad Federativa'].isin(entidades_seleccionadas)]
+            
+            if not df_filtrado.empty:
+                chart_entidades = alt.Chart(df_filtrado).mark_bar(color='#06B6D4', cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                    x=alt.X('Entidad Federativa:N', sort='-y', title='Entidad', axis=alt.Axis(labelAngle=-45)),
+                    y=alt.Y('Alumnos:Q', title='Total de Alumnos'),
+                    tooltip=['Entidad Federativa', 'Alumnos']
+                ).properties(height=320)
+                st.altair_chart(chart_entidades, use_container_width=True)
+            else:
+                st.warning("⚠️ Selecciona al menos una entidad en el menú desplegable para mostrar la gráfica.")
         else:
             st.info("No hay datos suficientes para calcular entidades.")
