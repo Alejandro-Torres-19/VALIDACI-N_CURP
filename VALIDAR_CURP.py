@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados (Diseño Ejecutivo / Gobierno - Corporate Blue)
+# Estilos CSS personalizados (Diseño Ejecutivo / Gobierno - Corporate Blue y Botones Grandes en Sidebar)
 st.markdown("""
     <style>
         .main-title { font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }
@@ -54,6 +54,24 @@ st.markdown("""
             border-radius: 8px;
             border: 1px solid #334155;
             margin-bottom: 20px;
+        }
+
+        /* --- AMPLIAR Y DESTACAR LOS BOTONES / OPCIONES DE LA BARRA LATERAL --- */
+        /* Incrementa el tamaño de texto y espacio de cada opción del menú lateral */
+        div[data-testid="stSidebar"] div.row-widget.stRadio > label {
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+            padding: 8px 0px !important;
+        }
+        div[data-testid="stSidebar"] .stRadio label p {
+            font-size: 1.05rem !important;
+        }
+        /* Aumentar tamaño y visibilidad del botón de sincronización en la barra lateral */
+        div[data-testid="stSidebar"] button {
+            font-size: 1.05rem !important;
+            font-weight: 600 !important;
+            padding: 0.6rem 1rem !important;
+            border-radius: 8px !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -401,7 +419,7 @@ if modo_app == "🔍 Modo A: Búsqueda por CURP":
                             st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
 
 # ==============================================================================
-# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (MANUAL)
+# MODO B: AUDITORÍA POR DATOS DEMOGRÁFICOS (MANUAL) - CON GRADO, GRUPO Y CCT
 # ==============================================================================
 elif modo_app == "📝 Modo B: Auditoría Demográfica":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
@@ -454,16 +472,25 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
                         
                         for idx, row in coincidencias.iterrows():
                             curp_registrada = str(row.get('CURP', '')).strip().upper()
-                            nombre_reg = row.get('Nombre(s)', '')
-                            pat_reg = row.get('Apellido Paterno', '')
-                            mat_reg = row.get('Apellido Materno', '')
+                            nombre_reg = str(row.get('Nombre(s)', '')).strip()
+                            pat_reg = str(row.get('Apellido Paterno', '')).strip()
+                            mat_reg = str(row.get('Apellido Materno', '')).strip()
+                            grado_reg = str(row.get('Grado', '')).strip()
+                            grupo_reg = str(row.get('Grupo', '')).strip()
+                            cct_reg = str(row.get('CCT', '')).strip()
                             
+                            nombre_completo_reg = f"{nombre_reg} {pat_reg} {mat_reg}"
                             coincide_base = curp_registrada.startswith(prefijo_calculado[:10])
                             
+                            # Tarjetas detalladas incluyendo Grado, Grupo y CCT
                             st.markdown(f"""
                                 <div class='info-card'>
-                                    <div class='info-label'>Alumno: {nombre_reg} {pat_reg} {mat_reg}</div>
-                                    <div class='info-value'>CURP en Base de Datos: <code>{curp_registrada}</code></div>
+                                    <div class='info-label'>Alumno Encontrado: {nombre_completo_reg}</div>
+                                    <div style="display: flex; gap: 10px; margin: 8px 0;">
+                                        <span style="background: #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; color: #F8FAFC;">Grado/Grupo: <b>{grado_reg}° '{grupo_reg}'</b></span>
+                                        <span style="background: #334155; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; color: #F8FAFC;">CCT: <b>{cct_reg if cct_reg else 'N/A'}</b></span>
+                                    </div>
+                                    <div class='info-value' style="margin-top: 6px;">CURP en Base de Datos: <code>{curp_registrada}</code></div>
                                 </div>
                             """, unsafe_allow_html=True)
                             
