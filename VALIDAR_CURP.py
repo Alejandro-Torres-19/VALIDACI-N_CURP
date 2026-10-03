@@ -150,7 +150,6 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.write("")
-    # Botón de sincronización discreto al pie de la barra lateral
     if st.button("🔄 Sincronizar Base de Datos", use_container_width=True):
         st.cache_data.clear()
         st.cache_resource.clear()
@@ -558,7 +557,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS
+# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS (CON KPI CARDS)
 # ==============================================================================
 elif modo_app == "📊 Modo D: Auditoría Masiva":
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
@@ -596,15 +595,23 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             total_invalidos = len(df_reporte[df_reporte['_es_valido_bool'] == False])
             total_validos = len(df_reporte[df_reporte['_es_valido_bool'] == True])
             
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                st.metric("Total Alumnos Analizados", total_alumnos)
-            with col_m2:
-                st.metric("CURPs Correctas (Verdes)", total_validos)
-            with col_m3:
-                st.metric("CURPs con Errores (Rojas)", total_invalidos)
-                
-            st.write("")
+            # Tarjetas de Métricas Ejecutivas (KPI Cards)
+            st.markdown(f"""
+                <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
+                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">TOTAL ALUMNOS</div>
+                        <div style="font-size: 1.8rem; color: #F8FAFC; font-weight: 700;">{total_alumnos} 🎓</div>
+                    </div>
+                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #10B981;">
+                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">CURPS VÁLIDAS</div>
+                        <div style="font-size: 1.8rem; color: #10B981; font-weight: 700;">{total_validos} 🟢</div>
+                    </div>
+                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #EF4444;">
+                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">ALERTAS / ERRORES</div>
+                        <div style="font-size: 1.8rem; color: #EF4444; font-weight: 700;">{total_invalidos} 🔴</div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
             
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
@@ -698,7 +705,7 @@ else:
                                 })
                                 
                 if parejas_similares:
-                    st.warning(f"⚠️️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares** (posible duplicidad de captura):")
+                    st.warning(f"⚠️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares** (posible duplicidad de captura):")
                     st.dataframe(pd.DataFrame(parejas_similares), use_container_width=True, hide_index=True)
                 else:
                     st.markdown("""
@@ -706,4 +713,4 @@ else:
                             <h3>🟢 Nombres Claros y Únicos</h3>
                             <p>No se encontraron registros con nombres inusualmente parecidos o duplicados.</p>
                         </div>
-                    """, unsafe_allow_html=True)i
+                    """, unsafe_allow_html=True)
