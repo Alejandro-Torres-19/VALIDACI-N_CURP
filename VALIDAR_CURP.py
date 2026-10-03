@@ -6,6 +6,7 @@ import re
 import unicodedata
 import datetime
 from rapidfuzz import process, fuzz
+import io
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
@@ -14,65 +15,106 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados (Diseño Ejecutivo / Gobierno - Corporate Blue y Botones Grandes en Sidebar)
-st.markdown("""
+# --- CAPTURA DE TEMA (CLARO / OSCURO) DESDE LA BARRA LATERAL ---
+with st.sidebar:
+    st.markdown("### 🎓 Panel Directivo")
+    st.markdown("Sistema de Control Escolar Alpha")
+    st.markdown("---")
+    
+    # Selector de Tema Discreto
+    modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro (Oficina)", "☀️ Modo Claro (Institucional)"], horizontal=False)
+    st.markdown("---")
+
+# Estilos CSS dinámicos según el tema seleccionado
+if "Oscuro" in modo_visual:
+    # Paleta Oscura (Corporate Blue Dark)
+    bg_card = "#1E293B"
+    border_card = "#334155"
+    text_main = "#F8FAFC"
+    text_label = "#94A3B8"
+    sidebar_bg = "#0F172A"
+    success_bg = "#ECFDF5"
+    success_border = "#A7F3D0"
+    success_color = "#065F46"
+    error_bg = "#FEF2F2"
+    error_border = "#FECACA"
+    error_color = "#991B1B"
+else:
+    # Paleta Clara (Corporate Blue Light / Gobierno)
+    bg_card = "#FFFFFF"
+    border_card = "#CBD5E1"
+    text_main = "#0F172A"
+    text_label = "#475569"
+    sidebar_bg = "#F1F5F9"
+    success_bg = "#F0FDF4"
+    success_border = "#BBF7D0"
+    success_color = "#166534"
+    error_bg = "#FEF2F2"
+    error_border = "#FECACA"
+    error_color = "#991B1B"
+
+st.markdown(f"""
     <style>
-        .main-title { font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }
-        .sub-title { font-size: 1.1rem; color: #4B5563; text-align: left; margin-bottom: 25px; }
+        /* --- ANCHO DE BARRA LATERAL --- */
+        [data-testid="stSidebar"] {{
+            min-width: 310px !important;
+            max-width: 350px !important;
+            background-color: {sidebar_bg} !important;
+        }}
+
+        .main-title {{ font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }}
+        .sub-title {{ font-size: 1.1rem; color: #4B5563; text-align: left; margin-bottom: 25px; }}
         
         /* Tarjetas de información uniformes */
-        .info-card {
-            background-color: #1E293B;
-            border: 1px solid #334155;
+        .info-card {{
+            background-color: {bg_card};
+            border: 1px solid {border_card};
             padding: 15px 18px;
             border-radius: 10px;
             margin-bottom: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .info-label {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }}
+        .info-label {{
             font-size: 0.85rem;
-            color: #94A3B8;
+            color: {text_label};
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
             font-weight: 600;
-        }
-        .info-value {
+        }}
+        .info-value {{
             font-size: 1.2rem;
-            color: #F8FAFC;
+            color: {text_main};
             font-weight: 700;
             word-break: break-word;
             line-height: 1.3;
-        }
-        .success-box { background-color: #ECFDF5; padding: 15px; border-radius: 10px; border: 1px solid #A7F3D0; color: #065F46; }
-        .error-box { background-color: #FEF2F2; padding: 15px; border-radius: 10px; border: 1px solid #FECACA; color: #991B1B; }
+        }}
+        .success-box {{ background-color: {success_bg}; padding: 15px; border-radius: 10px; border: 1px solid {success_border}; color: {success_color}; }}
+        .error-box {{ background-color: {error_bg}; padding: 15px; border-radius: 10px; border: 1px solid {error_border}; color: {error_color}; }}
         
-        /* Contenedor de barra lateral personalizado */
-        .sidebar-status {
-            background-color: #0F172A;
-            padding: 12px;
+        .sidebar-status {{
+            background-color: {bg_card};
+            padding: 14px;
             border-radius: 8px;
-            border: 1px solid #334155;
+            border: 1px solid {border_card};
             margin-bottom: 20px;
-        }
+        }}
 
-        /* --- AMPLIAR Y DESTACAR LOS BOTONES / OPCIONES DE LA BARRA LATERAL --- */
-        /* Incrementa el tamaño de texto y espacio de cada opción del menú lateral */
-        div[data-testid="stSidebar"] div.row-widget.stRadio > label {
+        /* --- BOTONES Y OPCIONES EN LA BARRA LATERAL --- */
+        div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
+            font-size: 1.15rem !important;
+            font-weight: 600 !important;
+            padding: 10px 0px !important;
+        }}
+        div[data-testid="stSidebar"] .stRadio label p {{
+            font-size: 1.1rem !important;
+        }}
+        div[data-testid="stSidebar"] button {{
             font-size: 1.1rem !important;
             font-weight: 600 !important;
-            padding: 8px 0px !important;
-        }
-        div[data-testid="stSidebar"] .stRadio label p {
-            font-size: 1.05rem !important;
-        }
-        /* Aumentar tamaño y visibilidad del botón de sincronización en la barra lateral */
-        div[data-testid="stSidebar"] button {
-            font-size: 1.05rem !important;
-            font-weight: 600 !important;
-            padding: 0.6rem 1rem !important;
+            padding: 0.7rem 1rem !important;
             border-radius: 8px !important;
-        }
+        }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -184,7 +226,7 @@ def obtener_primera_vocal_interna(palabra):
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
     p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
@@ -212,12 +254,8 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
     
     return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
 
-# --- BARRA LATERAL (SIDEBAR) PARA CONTROLES GLOBALES Y NAVEGACIÓN ---
+# --- CONTINUACIÓN DE LA BARRA LATERAL (MENÚ Y ESTADO) ---
 with st.sidebar:
-    st.markdown("### 🎓 Panel Directivo")
-    st.markdown("Sistema de Control Escolar Alpha")
-    st.markdown("---")
-    
     modo_app = st.radio(
         "Menú de Operaciones:",
         [
@@ -236,14 +274,14 @@ with st.sidebar:
         st.markdown("""
             <div class='sidebar-status'>
                 <span style='color: #10B981; font-weight: 700;'>🟢 Conectado a Sheets</span><br>
-                <span style='color: #94A3B8; font-size: 0.85rem;'>Registros cargados: <b>{}</b></span>
+                <span style='color: #94A3B8; font-size: 0.9rem;'>Registros cargados: <b>{}</b></span>
             </div>
         """.format(len(df_alumnos)), unsafe_allow_html=True)
     else:
         st.markdown("""
             <div class='sidebar-status'>
                 <span style='color: #EF4444; font-weight: 700;'>🔴 Error de Conexión</span><br>
-                <span style='color: #94A3B8; font-size: 0.85rem;'>Verifique credenciales</span>
+                <span style='color: #94A3B8; font-size: 0.9rem;'>Verifique credenciales</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -482,7 +520,6 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
                             nombre_completo_reg = f"{nombre_reg} {pat_reg} {mat_reg}"
                             coincide_base = curp_registrada.startswith(prefijo_calculado[:10])
                             
-                            # Tarjetas detalladas incluyendo Grado, Grupo y CCT
                             st.markdown(f"""
                                 <div class='info-card'>
                                     <div class='info-label'>Alumno Encontrado: {nombre_completo_reg}</div>
@@ -524,7 +561,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                 cantidad = len(alumnos_encontrados)
                 
             if cantidad == 0:
-                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
+                st.warning("⚠️️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
             
             elif cantidad == 1:
                 alumno = alumnos_encontrados.iloc[0]
@@ -588,7 +625,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     """, unsafe_allow_html=True)
                     
             else:
-                st.info(f"ℹ️️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
+                st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
                 opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
@@ -664,7 +701,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS (CON KPI CARDS)
+# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS (CON EXPORTACIÓN EXCEL)
 # ==============================================================================
 elif modo_app == "📊 Modo D: Auditoría Masiva":
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
@@ -705,16 +742,16 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             # Tarjetas de Métricas Ejecutivas (KPI Cards)
             st.markdown(f"""
                 <div style="display: flex; gap: 15px; margin-bottom: 25px;">
-                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
-                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">TOTAL ALUMNOS</div>
-                        <div style="font-size: 1.8rem; color: #F8FAFC; font-weight: 700;">{total_alumnos} 🎓</div>
+                    <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
+                        <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">TOTAL ALUMNOS</div>
+                        <div style="font-size: 1.8rem; color: {text_main}; font-weight: 700;">{total_alumnos} 🎓</div>
                     </div>
-                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #10B981;">
-                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">CURPS VÁLIDAS</div>
+                    <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #10B981;">
+                        <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">CURPS VÁLIDAS</div>
                         <div style="font-size: 1.8rem; color: #10B981; font-weight: 700;">{total_validos} 🟢</div>
                     </div>
-                    <div style="flex: 1; background-color: #1E293B; border: 1px solid #334155; padding: 15px; border-radius: 10px; border-left: 5px solid #EF4444;">
-                        <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 600;">ALERTAS / ERRORES</div>
+                    <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #EF4444;">
+                        <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">ALERTAS / ERRORES</div>
                         <div style="font-size: 1.8rem; color: #EF4444; font-weight: 700;">{total_invalidos} 🔴</div>
                     </div>
                 </div>
@@ -722,6 +759,21 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
+            # Botón de Descarga Excel (Reporte Ejecutivo)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df_mostrar.to_excel(writer, index=False, sheet_name='Auditoria_CURP')
+            excel_data = output.getvalue()
+
+            st.download_button(
+                label="📥 Descargar Reporte Ejecutivo en Excel",
+                data=excel_data,
+                file_name="Reporte_Auditoria_CURP.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            st.write("")
+
             def colorear_estado(val):
                 color = '#4A1515' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#113a22'
                 return f'background-color: {color}; color: #ffffff;'
@@ -734,7 +786,7 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             )
 
 # ==============================================================================
-# MODO E: ANTIFRAUDE ESCOLAR (DUPLICADOS Y HOMOCLAVES)
+# MODO E: ANTIFRAUDE ESCOLAR (DUPLICADOS Y HOMOCLAVES) - CON EXPORTACIÓN EXCEL
 # ==============================================================================
 else:
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
@@ -754,6 +806,7 @@ else:
                 validas_curp = temp_df[temp_df['CURP_LIMPIA'] != '']
                 duplicados_curp = validas_curp[validas_curp.duplicated(subset=['CURP_LIMPIA'], keep=False)]
                 
+                df_dup_export = pd.DataFrame()
                 if not duplicados_curp.empty:
                     st.error(f"🚨 **¡Alerta Roja! Se encontraron {len(duplicados_curp)} registros con CURPs idénticas compartidas entre diferentes alumnos:**")
                     
@@ -765,7 +818,8 @@ else:
                             "Grado/Grupo": f"{row.get('Grado', '')}° '{row.get('Grupo', '')}'",
                             "CURP Duplicada": row.get('CURP', '')
                         })
-                    st.dataframe(pd.DataFrame(tabla_dup), use_container_width=True, hide_index=True)
+                    df_dup_export = pd.DataFrame(tabla_dup)
+                    st.dataframe(df_dup_export, use_container_width=True, hide_index=True)
                 else:
                     st.markdown("""
                         <div class='success-box'>
@@ -811,9 +865,11 @@ else:
                                     "Similitud": f"{score}%"
                                 })
                                 
+                df_sim_export = pd.DataFrame()
                 if parejas_similares:
+                    df_sim_export = pd.DataFrame(parejas_similares)
                     st.warning(f"⚠️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares** (posible duplicidad de captura):")
-                    st.dataframe(pd.DataFrame(parejas_similares), use_container_width=True, hide_index=True)
+                    st.dataframe(df_sim_export, use_container_width=True, hide_index=True)
                 else:
                     st.markdown("""
                         <div class='success-box'>
@@ -821,3 +877,22 @@ else:
                             <p>No se encontraron registros con nombres inusualmente parecidos o duplicados.</p>
                         </div>
                     """, unsafe_allow_html=True)
+
+                # Botón de Descarga Antifraude Excel si hay hallazgos
+                if not df_dup_export.empty or not df_sim_export.empty:
+                    st.write("")
+                    output_anti = io.BytesIO()
+                    with pd.ExcelWriter(output_anti, engine='openpyxl') as writer:
+                        if not df_dup_export.empty:
+                            df_dup_export.to_excel(writer, index=False, sheet_name='CURPs_Duplicadas')
+                        if not df_sim_export.empty:
+                            df_sim_export.to_excel(writer, index=False, sheet_name='Nombres_Similares')
+                    excel_anti_data = output_anti.getvalue()
+
+                    st.download_button(
+                        label="📥 Descargar Reporte Antifraude en Excel",
+                        data=excel_anti_data,
+                        file_name="Reporte_Antifraude_Escolar.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
