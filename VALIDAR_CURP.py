@@ -530,7 +530,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                     """, unsafe_allow_html=True)
                     
             else:
-                st.info(f"ℹ️️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
+                st.info(f"ℹ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
                 opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
@@ -670,7 +670,7 @@ elif modo_app == "📊 Modo D: Auditoría Masiva de CURPs":
 # MODO E: ANTIFRAUDE ESCOLAR (DUPLICADOS Y HOMOCLAVES)
 # ==============================================================================
 else:
-    st.markdown("### 🛡️️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
+    st.markdown("### 🛡 Auditoría Antifraude: Detección de Duplicados y Coincidencias")
     st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
 
     if st.button("🔍 Iniciar Escaneo Antifraude", type="primary", use_container_width=True):
@@ -680,11 +680,9 @@ else:
             st.markdown("---")
             st.markdown("#### 1️⃣ Análisis de CURPs Duplicadas (Colisión Exacta)")
             
-            # Limpiar CURPs para evitar falsos positivos por espacios
             temp_df = df_alumnos.copy()
             temp_df['CURP_LIMPIA'] = temp_df['CURP'].astype(str).str.strip().str.upper()
             
-            # Filtrar filas con CURP válida para buscar duplicados
             validas_curp = temp_df[temp_df['CURP_LIMPIA'] != '']
             duplicados_curp = validas_curp[validas_curp.duplicated(subset=['CURP_LIMPIA'], keep=False)]
             
@@ -712,7 +710,6 @@ else:
             st.markdown("#### 2️⃣ Análisis de Similitud de Nombres (Posibles Alumnos Duplicados)")
             st.write("Búsqueda cruzada mediante algoritmos de aproximación para detectar nombres muy parecidos (variaciones de dedo o doble registro).")
             
-            # Construir nombres completos limpios
             nombres_completos = []
             for _, row in df_alumnos.iterrows():
                 n = str(row.get('Nombre(s)', '')).strip()
@@ -731,9 +728,8 @@ else:
                     if i >= j or not nom_b or nom_b == "  ":
                         continue
                     
-                    # Calcular porcentaje de similitud
                     score = fuzz.ratio(nom_a, nom_b)
-                    if 85 <= score < 100:  # Similitud alta pero no idénticos
+                    if 85 <= score < 100:
                         par_key = tuple(sorted([nom_a, nom_b]))
                         if par_key not in nombres_vistos:
                             nombres_vistos.add(par_key)
@@ -757,4 +753,3 @@ else:
                         <p>No se encontraron registros con nombres inusualmente parecidos o duplicados.</p>
                     </div>
                 """, unsafe_allow_html=True)
-            )
