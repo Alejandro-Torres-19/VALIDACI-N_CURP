@@ -20,7 +20,8 @@ with st.sidebar:
     st.markdown("Sistema de Control Escolar")
     st.markdown("---")
     
-    modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro (Oficina)", "☀️ Modo Claro (Institucional)"], horizontal=False)
+    # Tema visual sin paréntesis
+    modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro", "☀️ Modo Claro"], horizontal=False)
     st.markdown("---")
 
 # Estilos CSS dinámicos y ampliados según el tema seleccionado
@@ -97,12 +98,12 @@ st.markdown(f"""
 
         /* --- BOTONES Y OPCIONES MÁS GRANDES Y VISIBLES EN LA BARRA LATERAL --- */
         div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
-            font-size: 1.25rem !important;
+            font-size: 1.2rem !important;
             font-weight: 600 !important;
-            padding: 12px 0px !important;
+            padding: 10px 0px !important;
         }}
         div[data-testid="stSidebar"] .stRadio label p {{
-            font-size: 1.15rem !important;
+            font-size: 1.1rem !important;
         }}
         div[data-testid="stSidebar"] button {{
             font-size: 1.15rem !important;
@@ -247,15 +248,16 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
     return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
 
 with st.sidebar:
+    # Menú de operaciones sin la palabra "Modo" ni letras asignadas
     modo_app = st.radio(
         "Menú de Operaciones:",
         [
-            "🔍 Modo A: Búsqueda por CURP", 
-            "📝 Modo B: Auditoría Demográfica", 
-            "⚡ Modo C: Búsqueda Inteligente",
-            "📊 Modo D: Auditoría Masiva",
-            "🛡️ Modo E: Antifraude y Duplicados",
-            "📈 Modo F: Dashboard Directivo"
+            "🔍 Búsqueda por CURP", 
+            "📝 Auditoría Demográfica", 
+            "⚡ Búsqueda Inteligente",
+            "📊 Auditoría Masiva",
+            "🛡️ Antifraude y Duplicados",
+            "📈 Dashboard Directivo"
         ]
     )
     
@@ -287,7 +289,7 @@ st.markdown("<h1 class='main-title'>🎓 Validador y Analizador Integral de CURP
 st.markdown("<p class='sub-title'>Plataforma institucional de validación y control escolar automatizado</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-if modo_app == "🔍 Modo A: Búsqueda por CURP":
+if modo_app == "🔍 Búsqueda por CURP":
     st.markdown("### 🔍 Validación Directa por CURP")
     st.write("Introduce una CURP para verificar su autenticidad matemática y cruzarla con el expediente del alumno.")
     
@@ -443,7 +445,7 @@ if modo_app == "🔍 Modo A: Búsqueda por CURP":
                         else:
                             st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
 
-elif modo_app == "📝 Modo B: Auditoría Demográfica":
+elif modo_app == "📝 Auditoría Demográfica":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
     st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja de datos.")
 
@@ -470,7 +472,7 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
 
     if btn_auditar:
         if not input_nombre or not input_ap_pat:
-            st.warning("⚠️️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
+            st.warning("⚠️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
         else:
             with st.spinner("⚙️ Generando prefijo teórico y contrastando base de datos..."):
                 input_fecha = datetime.date(int(input_anio), int(input_mes), int(input_dia))
@@ -480,7 +482,7 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
                     input_fecha, genero_letra, input_entidad
                 )
                 
-                st.info(f"⚙️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
+                st.info(f"⚙️️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
                 
                 if df_alumnos.empty:
                     st.error("La base de datos de Google Sheets está vacía.")
@@ -520,7 +522,7 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
                     else:
                         st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
 
-elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
+elif modo_app == "⚡ Búsqueda Inteligente":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
     st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
 
@@ -671,7 +673,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                         </div>
                     """, unsafe_allow_html=True)
 
-elif modo_app == "📊 Modo D: Auditoría Masiva":
+elif modo_app == "📊 Auditoría Masiva":
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
     st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero.")
 
@@ -745,7 +747,7 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
                 hide_index=True
             )
 
-elif modo_app == "🛡️ Modo E: Antifraude y Duplicados":
+elif modo_app == "🛡️ Antifraude y Duplicados":
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
     st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
 
@@ -843,18 +845,17 @@ elif modo_app == "🛡️ Modo E: Antifraude y Duplicados":
                     )
 
 # ==============================================================================
-# MODO F: DASHBOARD DIRECTIVO (ANÁLISIS GENERAL DE MATRÍCULA)
+# MODO F: DASHBOARD DIRECTIVO INTERACTIVO (CON GRÁFICAS NATIVAS DE STREAMLIT)
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
-    st.write("Panel general de indicadores clave sobre la matrícula escolar actual cargada desde Google Sheets.")
+    st.write("Panel interactivo con indicadores clave y gráficas visuales sobre la matrícula escolar actual.")
 
     if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
         st.error("La base de datos está vacía o no contiene la información necesaria para generar el dashboard.")
     else:
         total_matriz = len(df_alumnos)
         
-        # Calcular validez general
         validas_count = 0
         for _, r in df_alumnos.iterrows():
             if validar_digito_verificador_curp(str(r.get('CURP', ''))):
@@ -883,30 +884,45 @@ else:
         col_d1, col_d2 = st.columns(2)
 
         with col_d1:
-            st.markdown("#### 📚 Distribución de Alumnos por Grado y Grupo")
+            st.markdown("#### 📊 Distribución Interactiva por Grado y Grupo")
             if 'Grado' in df_alumnos.columns and 'Grupo' in df_alumnos.columns:
                 df_alumnos['Grado_Grupo'] = df_alumnos['Grado'].astype(str) + "° '" + df_alumnos['Grupo'].astype(str) + "'"
                 conteo_grupos = df_alumnos['Grado_Grupo'].value_counts().reset_index()
-                conteo_grupos.columns = ['Grado y Grupo', 'Total Alumnos']
-                st.dataframe(conteo_grupos, use_container_width=True, hide_index=True)
+                conteo_grupos.columns = ['Grado_Grupo', 'Total']
+                conteo_grupos = conteo_grupos.set_index('Grado_Grupo')
+                
+                # Gráfica de barras interactiva nativa de Streamlit
+                st.bar_chart(conteo_grupos)
             else:
                 st.info("No se encontraron las columnas 'Grado' o 'Grupo' en la hoja de cálculo.")
 
         with col_d2:
-            st.markdown("#### 🗺️ Procedencia por Entidad de Nacimiento")
-            if 'CURP' in df_alumnos.columns:
-                entidades_encontradas = []
-                for _, r in df_alumnos.iterrows():
-                    c = str(r.get('CURP', '')).strip().upper()
-                    if len(c) == 18:
-                        code = c[11:13]
-                        entidades_encontradas.append(CODIGOS_ESTADOS.get(code, "OTRO / EXTRANJERO"))
-                    else:
-                        entidades_encontradas.append("SIN CURP VÁLIDA")
-                
-                df_entidades = pd.DataFrame(entidades_encontradas, columns=['Entidad'])
-                conteo_entidades = df_entidades['Entidad'].value_counts().reset_index()
-                conteo_entidades.columns = ['Entidad Federativa', 'Alumnos']
-                st.dataframe(conteo_entidades, use_container_width=True, hide_index=True)
-            else:
-                st.info("No hay datos suficientes para calcular entidades.")
+            st.markdown("#### 🥧 Estado de Salud de las CURPs")
+            df_salud = pd.DataFrame({
+                'Estado': ['Válidas (Correctas)', 'Inválidas / Alerta'],
+                'Cantidad': [validas_count, invalidas_count]
+            }).set_index('Estado')
+            
+            # Gráfica de área/línea interactiva nativa de Streamlit
+            st.area_chart(df_salud)
+
+        st.markdown("---")
+        st.markdown("#### 🗺️ Resumen de Procedencia por Entidad Federativa")
+        if 'CURP' in df_alumnos.columns:
+            entidades_encontradas = []
+            for _, r in df_alumnos.iterrows():
+                c = str(r.get('CURP', '')).strip().upper()
+                if len(c) == 18:
+                    code = c[11:13]
+                    entidades_encontradas.append(CODIGOS_ESTADOS.get(code, "OTRO / EXTRANJERO"))
+                else:
+                    entidades_encontradas.append("SIN CURP VÁLIDA")
+            
+            df_entidades = pd.DataFrame(entidades_encontradas, columns=['Entidad'])
+            conteo_entidades = df_entidades['Entidad'].value_counts().reset_index()
+            conteo_entidades.columns = ['Entidad Federativa', 'Alumnos']
+            conteo_entidades = conteo_entidades.set_index('Entidad Federativa')
+            
+            st.bar_chart(conteo_entidades)
+        else:
+            st.info("No hay datos suficientes para calcular entidades.")
