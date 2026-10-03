@@ -441,7 +441,7 @@ elif modo_app == "📝 Modo B: Auditoría por Datos Demográficos (Manual)":
                         else:
                             st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Requiere revisión manual en gob.mx**.")
                 else:
-                    st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastار.")
+                    st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
 
 # ==============================================================================
 # MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA
@@ -546,7 +546,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
 # ==============================================================================
 else:
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
-    st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero en color rojo.")
+    st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero.")
 
     if st.button("🚀 Ejecutar Análisis Masivo", type="primary", use_container_width=True):
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
@@ -556,33 +556,26 @@ else:
             
             for index, row in df_alumnos.iterrows():
                 curp_val = str(row.get('CURP', '')).strip().upper()
-                nombre_val = f"{row.get('Nombre(s', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
-                # Por si la columna se llama 'Nombre(s)' exacto:
-                if not nombre_val:
-                    nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
+                nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
                 
                 grado_val = row.get('Grado', '')
                 grupo_val = row.get('Grupo', '')
                 
-                # Comprobación matemática
                 es_valida = validar_digito_verificador_curp(curp_val) if curp_val else False
                 estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Falso / Erróneo)"
                 
                 resultados_masivos.append({
-                    "Índice": index + 2, # Número de fila en Sheets (asumiendo cabecera en fila 1)
+                    "Índice": index + 2,
                     "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
                     "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
                     "CURP": curp_val if curp_val else "VACÍA",
-                    "Estado Matético": estado_str,
-                    "_es_valido_bool": es_valida # Columna auxiliar para ordenar
+                    "Estado Matemático": estado_str,
+                    "_es_valido_bool": es_valida
                 })
                 
             df_reporte = pd.DataFrame(resultados_masivos)
-            
-            # Ordenar para que los inválidos (Falsos/False) aparezcan PRIMERO
             df_reporte = df_reporte.sort_values(by="_es_valido_bool", ascending=True)
             
-            # Contadores generales
             total_alumnos = len(df_reporte)
             total_invalidos = len(df_reporte[df_reporte['_es_valido_bool'] == False])
             total_validos = len(df_reporte[df_reporte['_es_valido_bool'] == True])
@@ -597,17 +590,16 @@ else:
                 
             st.write("")
             
-            # Eliminar la columna auxiliar antes de mostrar en pantalla
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
-            # Función para colorear filas en la tabla de Streamlit según validez
+            # Función para colorear filas compatible con pandas moderno (.map)
             def colorear_estado(val):
-                color = '#ffcccc' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#d4edda'
-                return f'background-color: {color}'
+                color = '#4A1515' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#113a22'
+                return f'background-color: {color}; color: #ffffff;'
                 
             st.markdown("#### Listado General de Auditoría (Ordenado con alertas prioritarias al inicio):")
             st.dataframe(
-                df_mostrar.style.applymap(colorear_estado, subset=['Estado Matético']),
+                df_mostrar.style.map(colorear_estado, subset=['Estado Matemático']),
                 use_container_width=True,
                 hide_index=True
             )
