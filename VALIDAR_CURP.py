@@ -465,7 +465,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
             cantidad = len(alumnos_encontrados)
             
             if cantidad == 0:
-                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
+                st.warning("⚠️️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
             
             elif cantidad == 1:
                 alumno = alumnos_encontrados.iloc[0]
@@ -565,7 +565,6 @@ else:
                 estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Falso / Erróneo)"
                 
                 resultados_masivos.append({
-                    "Índice": index + 2,
                     "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
                     "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
                     "CURP": curp_val if curp_val else "VACÍA",
@@ -592,7 +591,6 @@ else:
             
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
-            # Función para colorear filas compatible con pandas moderno (.map)
             def colorear_estado(val):
                 color = '#4A1515' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#113a22'
                 return f'background-color: {color}; color: #ffffff;'
