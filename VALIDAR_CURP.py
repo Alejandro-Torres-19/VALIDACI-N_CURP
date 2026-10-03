@@ -444,7 +444,7 @@ elif modo_app == "📝 Modo B: Auditoría por Datos Demográficos (Manual)":
                     st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
 
 # ==============================================================================
-# MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA
+# MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA (AMIGABLE)
 # ==============================================================================
 elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
@@ -465,7 +465,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
             cantidad = len(alumnos_encontrados)
             
             if cantidad == 0:
-                st.warning("⚠️️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
+                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
             
             elif cantidad == 1:
                 alumno = alumnos_encontrados.iloc[0]
@@ -476,27 +476,44 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                 curp_g = str(alumno.get('CURP', '')).strip().upper()
                 grado_g = str(alumno.get('Grado', '')).strip()
                 grupo_g = str(alumno.get('Grupo', '')).strip()
+                cct_g = str(alumno.get('CCT', '')).strip()
                 
-                st.success(f"🎯 ¡Alumno encontrado de forma única: **{nom_g} {pat_g} {mat_g}**!")
+                nombre_completo = f"{nom_g} {pat_g} {mat_g}"
+                st.success(f"🎯 ¡Alumno encontrado de forma única!")
                 
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
-                col_res1, col_res2 = st.columns(2)
-                with col_res1:
-                    st.markdown(f"""
-                        <div class='info-card'>
-                            <div class='info-label'>CURP Registrada</div>
-                            <div class='info-value'><code>{curp_g}</code></div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with col_res2:
+                # Tarjetas grandes estilo Sección A
+                st.markdown(f"""
+                    <div class='info-card'>
+                        <div class='info-label'>Nombre Completo</div>
+                        <div class='info-value'>{nombre_completo}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
                     st.markdown(f"""
                         <div class='info-card'>
                             <div class='info-label'>Grado y Grupo</div>
                             <div class='info-value'>{grado_g}° - '{grupo_g}'</div>
                         </div>
                     """, unsafe_allow_html=True)
+                with col_r2:
+                    st.markdown(f"""
+                        <div class='info-card'>
+                            <div class='info-label'>CCT Escuela</div>
+                            <div class='info-value'>{cct_g if cct_g else 'No asignado'}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
+                st.markdown(f"""
+                    <div class='info-card'>
+                        <div class='info-label'>CURP Registrada</div>
+                        <div class='info-value'><code>{curp_g}</code></div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
                 if es_valida_mat:
                     st.markdown("""
                         <div class='success-box'>
@@ -515,20 +532,59 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
             else:
                 st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
-                opciones_alumnos = []
+                # Diccionario amigable para el menú desplegable: "APELLIDOS NOMBRE (Grado° 'Grupo')"
+                opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
-                    n_completo = f"{row.get('Nombre(s)')} {row.get('Apellido Paterno')} {row.get('Apellido Materno')} (CURP: {row.get('CURP')})"
-                    opciones_alumnos.append((n_completo, idx))
+                    n = str(row.get('Nombre(s)', '')).strip()
+                    p = str(row.get('Apellido Paterno', '')).strip()
+                    m = str(row.get('Apellido Materno', '')).strip()
+                    g = str(row.get('Grado', '')).strip()
+                    gr = str(row.get('Grupo', '')).strip()
                     
-                alumno_seleccionado_label = st.selectbox("Elige el registro correcto de la lista:", [op[0] for op in opciones_alumnos])
+                    etiqueta_amigable = f"{p} {m}, {n}  —  [{g}° '{gr}']"
+                    opciones_map[etiqueta_amigable] = idx
+                    
+                seleccion_usuario = st.selectbox("Elige el registro correcto de la lista:", list(opciones_map.keys()))
                 
-                idx_real = next(op[1] for op in opciones_alumnos if op[0] == alumno_seleccionado_label)
+                idx_real = opciones_map[seleccion_usuario]
                 alumno = df_alumnos.loc[idx_real]
                 
+                nom_g = str(alumno.get('Nombre(s)', '')).strip()
+                pat_g = str(alumno.get('Apellido Paterno', '')).strip()
+                mat_g = str(alumno.get('Apellido Materno', '')).strip()
                 curp_g = str(alumno.get('CURP', '')).strip().upper()
+                grado_g = str(alumno.get('Grado', '')).strip()
+                grupo_g = str(alumno.get('Grupo', '')).strip()
+                cct_g = str(alumno.get('CCT', '')).strip()
+                nombre_completo = f"{nom_g} {pat_g} {mat_g}"
+                
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
                 st.write("")
+                # Tarjetas grandes estilo Sección A para el seleccionado
+                st.markdown(f"""
+                    <div class='info-card'>
+                        <div class='info-label'>Nombre Completo</div>
+                        <div class='info-value'>{nombre_completo}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    st.markdown(f"""
+                        <div class='info-card'>
+                            <div class='info-label'>Grado y Grupo</div>
+                            <div class='info-value'>{grado_g}° - '{grupo_g}'</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col_r2:
+                    st.markdown(f"""
+                        <div class='info-card'>
+                            <div class='info-label'>CCT Escuela</div>
+                            <div class='info-value'>{cct_g if cct_g else 'No asignado'}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
                 st.markdown(f"""
                     <div class='info-card'>
                         <div class='info-label'>CURP Seleccionada</div>
@@ -537,9 +593,19 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                 """, unsafe_allow_html=True)
                 
                 if es_valida_mat:
-                    st.success("🟢 El alumno seleccionado cuenta con una CURP matemáticamente correcta.")
+                    st.markdown("""
+                        <div class='success-box'>
+                            <h3>🟢 Validación Exitosa</h3>
+                            <p>El dígito verificador matemático de esta CURP es oficial y correcto.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.error("🚨 Alerta Directiva: El alumno seleccionado tiene una CURP con errores en el dígito verificador (Requiere revisión manual).")
+                    st.markdown("""
+                        <div class='error-box'>
+                            <h3>🔴 Alerta Directiva</h3>
+                            <p>El alumno seleccionado tiene una CURP con errores en el dígito verificador (Requiere revisión manual).</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
 # ==============================================================================
 # MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS
@@ -568,7 +634,7 @@ else:
                     "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
                     "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
                     "CURP": curp_val if curp_val else "VACÍA",
-                    "Estado Matemático": estado_str,
+                    "Estado": estado_str,
                     "_es_valido_bool": es_valida
                 })
                 
@@ -597,7 +663,7 @@ else:
                 
             st.markdown("#### Listado General de Auditoría (Ordenado con alertas prioritarias al inicio):")
             st.dataframe(
-                df_mostrar.style.map(colorear_estado, subset=['Estado Matemático']),
+                df_mostrar.style.map(colorear_estado, subset=['Estado']),
                 use_container_width=True,
                 hide_index=True
             )
