@@ -206,7 +206,8 @@ modo_app = st.radio(
         "🔍 Modo A: Búsqueda y Validación por CURP", 
         "📝 Modo B: Auditoría por Datos Demográficos (Manual)", 
         "⚡ Modo C: Búsqueda Inteligente por Nombre",
-        "📊 Modo D: Auditoría Masiva de CURPs"
+        "📊 Modo D: Auditoría Masiva de CURPs",
+        "🛡️ Modo E: Antifraude y Duplicados"
     ],
     horizontal=True
 )
@@ -483,7 +484,6 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                 
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
-                # Tarjetas grandes estilo Sección A
                 st.markdown(f"""
                     <div class='info-card'>
                         <div class='info-label'>Nombre Completo</div>
@@ -530,9 +530,8 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                     """, unsafe_allow_html=True)
                     
             else:
-                st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
+                st.info(f"ℹ️️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
-                # Diccionario amigable para el menú desplegable: "APELLIDOS NOMBRE (Grado° 'Grupo')"
                 opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
                     n = str(row.get('Nombre(s)', '')).strip()
@@ -561,7 +560,6 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                 es_valida_mat = validar_digito_verificador_curp(curp_g)
                 
                 st.write("")
-                # Tarjetas grandes estilo Sección A para el seleccionado
                 st.markdown(f"""
                     <div class='info-card'>
                         <div class='info-label'>Nombre Completo</div>
@@ -596,7 +594,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador matemático de esta CURP es oficial y correcto.</p>
+                            <p>El alumno seleccionado cuenta con una CURP matemáticamente correcta.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -610,7 +608,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
 # ==============================================================================
 # MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS
 # ==============================================================================
-else:
+elif modo_app == "📊 Modo D: Auditoría Masiva de CURPs":
     st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
     st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero.")
 
@@ -666,4 +664,97 @@ else:
                 df_mostrar.style.map(colorear_estado, subset=['Estado']),
                 use_container_width=True,
                 hide_index=True
+            )
+
+# ==============================================================================
+# MODO E: ANTIFRAUDE ESCOLAR (DUPLICADOS Y HOMOCLAVES)
+# ==============================================================================
+else:
+    st.markdown("### 🛡️️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
+    st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
+
+    if st.button("🔍 Iniciar Escaneo Antifraude", type="primary", use_container_width=True):
+        if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+        else:
+            st.markdown("---")
+            st.markdown("#### 1️⃣ Análisis de CURPs Duplicadas (Colisión Exacta)")
+            
+            # Limpiar CURPs para evitar falsos positivos por espacios
+            temp_df = df_alumnos.copy()
+            temp_df['CURP_LIMPIA'] = temp_df['CURP'].astype(str).str.strip().str.upper()
+            
+            # Filtrar filas con CURP válida para buscar duplicados
+            validas_curp = temp_df[temp_df['CURP_LIMPIA'] != '']
+            duplicados_curp = validas_curp[validas_curp.duplicated(subset=['CURP_LIMPIA'], keep=False)]
+            
+            if not duplicados_curp.empty:
+                st.error(f"🚨 **¡Alerta Roja! Se encontraron {len(duplicados_curp)} registros con CURPs idénticas compartidas entre diferentes alumnos:**")
+                
+                tabla_dup = []
+                for _, row in duplicados_curp.iterrows():
+                    nom = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
+                    tabla_dup.append({
+                        "Alumno": nom,
+                        "Grado/Grupo": f"{row.get('Grado', '')}° '{row.get('Grupo', '')}'",
+                        "CURP Duplicada": row.get('CURP', '')
+                    })
+                st.dataframe(pd.DataFrame(tabla_dup), use_container_width=True, hide_index=True)
+            else:
+                st.markdown("""
+                    <div class='success-box'>
+                        <h3>🟢 Sin Colisiones de CURP</h3>
+                        <p>No se detectó ninguna CURP repetida en toda la base de datos.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+            st.markdown("---")
+            st.markdown("#### 2️⃣ Análisis de Similitud de Nombres (Posibles Alumnos Duplicados)")
+            st.write("Búsqueda cruzada mediante algoritmos de aproximación para detectar nombres muy parecidos (variaciones de dedo o doble registro).")
+            
+            # Construir nombres completos limpios
+            nombres_completos = []
+            for _, row in df_alumnos.iterrows():
+                n = str(row.get('Nombre(s)', '')).strip()
+                p = str(row.get('Apellido Paterno', '')).strip()
+                m = str(row.get('Apellido Materno', '')).strip()
+                completo = f"{n} {p} {m}".upper()
+                nombres_completos.append(completo)
+                
+            parejas_similares = []
+            nombres_vistos = set()
+            
+            for i, nom_a in enumerate(nombres_completos):
+                if not nom_a or nom_a == "  ":
+                    continue
+                for j, nom_b in enumerate(nombres_completos):
+                    if i >= j or not nom_b or nom_b == "  ":
+                        continue
+                    
+                    # Calcular porcentaje de similitud
+                    score = fuzz.ratio(nom_a, nom_b)
+                    if 85 <= score < 100:  # Similitud alta pero no idénticos
+                        par_key = tuple(sorted([nom_a, nom_b]))
+                        if par_key not in nombres_vistos:
+                            nombres_vistos.add(par_key)
+                            
+                            row_a = df_alumnos.iloc[i]
+                            row_b = df_alumnos.iloc[j]
+                            
+                            parejas_similares.append({
+                                "Registro 1": f"{nom_a} ({row_a.get('Grado', '')}° '{row_a.get('Grupo', '')}')",
+                                "Registro 2": f"{nom_b} ({row_b.get('Grado', '')}° '{row_b.get('Grupo', '')}')",
+                                "Similitud": f"{score}%"
+                            })
+                            
+            if parejas_similares:
+                st.warning(f"⚠️ Se detectaron **{len(parejas_similares)} parejas de registros con nombres sospechosamente similares** (posible duplicidad de captura):")
+                st.dataframe(pd.DataFrame(parejas_similares), use_container_width=True, hide_index=True)
+            else:
+                st.markdown("""
+                    <div class='success-box'>
+                        <h3>🟢 Nombres Claros y Únicos</h3>
+                        <p>No se encontraron registros con nombres inusualmente parecidos o duplicados.</p>
+                    </div>
+                """, unsafe_allow_html=True)
             )
