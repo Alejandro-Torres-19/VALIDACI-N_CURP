@@ -112,13 +112,94 @@ def cargar_datos():
 
 df_alumnos, conexion_activa = cargar_datos()
 
+# --- FUNCIONES AUXILIARES DE MATEMÁTICA Y CURP ---
+def validar_digito_verificador_curp(curp: str) -> bool:
+    curp = curp.strip().upper()
+    if len(curp) != 18:
+        return False
+    patron_estricto = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$')
+    if not patron_estricto.match(curp):
+        return False
+        
+    diccionario = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+    suma = 0
+    for i in range(17):
+        caracter = curp[i]
+        valor = diccionario.find(caracter)
+        if valor == -1:
+            return False
+        suma += valor * (18 - i)
+    
+    digito_esperado = (10 - (suma % 10)) % 10
+    digito_real = int(curp[17]) if curp[17].isdigit() else diccionario.find(curp[17])
+    return digito_esperado == digito_real
+
+def decodificar_curp(curp):
+    curp = curp.strip().upper()
+    if len(curp) != 18:
+        return None
+    yy, mm, dd = curp[4:6], curp[6:8], curp[8:10]
+    siglo = "20" if int(yy) <= 30 else "19"
+    return {
+        "letra_primer_apellido": curp[0],
+        "vocal_primer_apellido": curp[1],
+        "letra_segundo_apellido": curp[2],
+        "letra_nombre": curp[3],
+        "fecha_nacimiento": f"{siglo}{yy}-{mm}-{dd}",
+        "genero": "Hombre" if curp[10] == "H" else ("Mujer" if curp[10] == "M" else "Desconocido"),
+        "codigo_estado": curp[11:13],
+        "estado_nacimiento": CODIGOS_ESTADOS.get(curp[11:13], "Desconocido")
+    }
+
+def normalizar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    texto = unicodedata.normalize('NFD', texto)
+    texto = ''.join([c for c in texto if not unicodedata.combining(c)])
+    return texto.upper().strip()
+
+def obtener_primera_vocal_interna(palabra):
+    for letra in palabra[1:]:
+        if letra in "AEIOU":
+            return letra
+    return 'X'
+
+def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
+    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
+    
+    c1 = p_pat[0] if len(p_pat) > 0 else "X"
+    c2 = obtener_primera_vocal_interna(p_pat)
+    c3 = p_mat[0] if len(p_mat) > 0 else "X"
+    c4 = p_nom[0] if len(p_nom) > 0 else "X"
+    
+    try:
+        partes_fecha = str(fecha_nac).split(' ')[0].split('-')
+        if len(partes_fecha) == 3:
+            aa = partes_fecha[0][2:]
+            mm = partes_fecha[1]
+            dd = partes_fecha[2]
+            f_str = f"{aa}{mm}{dd}"
+        else:
+            f_str = "000000"
+    except:
+        f_str = "000000"
+        
+    g_str = "H" if "H" in str(genero).upper() else "M"
+    
+    estados_inverso = {v: k for k, v in CODIGOS_ESTADOS.items()}
+    ent_limpia = normalizar_texto(entidad)
+    ent_str = estados_inverso.get(ent_limpia, "NE")
+    
+    return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
+
 # --- BARRA LATERAL (SIDEBAR) PARA CONTROLES GLOBALES Y NAVEGACIÓN ---
 with st.sidebar:
     st.markdown("### 🎓 Panel Directivo")
     st.markdown("Sistema de Control Escolar Alpha")
     st.markdown("---")
     
-    # Menú de Navegación lateral (Filtro de Modos)
     modo_app = st.radio(
         "Menú de Operaciones:",
         [
@@ -133,7 +214,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("##### 🔌 Estado del Sistema")
     
-    # Semáforo de conexión visual
     if conexion_activa:
         st.markdown("""
             <div class='sidebar-status'>
@@ -481,7 +561,7 @@ elif modo_app == "⚡ Modo C: Búsqueda Inteligente":
                     """, unsafe_allow_html=True)
                     
             else:
-                st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
+                st.info(f"ℹ️️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
                 opciones_map = {}
                 for idx, row in alumnos_encontrados.iterrows():
