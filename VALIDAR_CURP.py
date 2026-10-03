@@ -17,13 +17,13 @@ st.set_page_config(
 # --- CAPTURA DE TEMA (CLARO / OSCURO) DESDE LA BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### 🎓 Panel Directivo")
-    st.markdown("Sistema de Control Escolar Alpha")
+    st.markdown("Sistema de Control Escolar")
     st.markdown("---")
     
     modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro (Oficina)", "☀️ Modo Claro (Institucional)"], horizontal=False)
     st.markdown("---")
 
-# Estilos CSS dinámicos según el tema seleccionado
+# Estilos CSS dinámicos y ampliados según el tema seleccionado
 if "Oscuro" in modo_visual:
     bg_card = "#1E293B"
     border_card = "#334155"
@@ -51,9 +51,10 @@ else:
 
 st.markdown(f"""
     <style>
+        /* --- ANCHO Y TAMAÑO AMPLIADO DE BARRA LATERAL --- */
         [data-testid="stSidebar"] {{
-            min-width: 310px !important;
-            max-width: 350px !important;
+            min-width: 330px !important;
+            max-width: 370px !important;
             background-color: {sidebar_bg} !important;
         }}
 
@@ -69,7 +70,7 @@ st.markdown(f"""
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
         .info-label {{
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: {text_label};
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -77,7 +78,7 @@ st.markdown(f"""
             font-weight: 600;
         }}
         .info-value {{
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: {text_main};
             font-weight: 700;
             word-break: break-word;
@@ -94,18 +95,19 @@ st.markdown(f"""
             margin-bottom: 20px;
         }}
 
+        /* --- BOTONES Y OPCIONES MÁS GRANDES Y VISIBLES EN LA BARRA LATERAL --- */
         div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
-            font-size: 1.15rem !important;
+            font-size: 1.25rem !important;
             font-weight: 600 !important;
-            padding: 10px 0px !important;
+            padding: 12px 0px !important;
         }}
         div[data-testid="stSidebar"] .stRadio label p {{
-            font-size: 1.1rem !important;
+            font-size: 1.15rem !important;
         }}
         div[data-testid="stSidebar"] button {{
-            font-size: 1.1rem !important;
+            font-size: 1.15rem !important;
             font-weight: 600 !important;
-            padding: 0.7rem 1rem !important;
+            padding: 0.8rem 1rem !important;
             border-radius: 8px !important;
         }}
     </style>
@@ -216,7 +218,7 @@ def obtener_primera_vocal_interna(palabra):
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
     p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
@@ -252,7 +254,8 @@ with st.sidebar:
             "📝 Modo B: Auditoría Demográfica", 
             "⚡ Modo C: Búsqueda Inteligente",
             "📊 Modo D: Auditoría Masiva",
-            "🛡️ Modo E: Antifraude y Duplicados"
+            "🛡️ Modo E: Antifraude y Duplicados",
+            "📈 Modo F: Dashboard Directivo"
         ]
     )
     
@@ -263,14 +266,14 @@ with st.sidebar:
         st.markdown("""
             <div class='sidebar-status'>
                 <span style='color: #10B981; font-weight: 700;'>🟢 Conectado a Sheets</span><br>
-                <span style='color: #94A3B8; font-size: 0.9rem;'>Registros cargados: <b>{}</b></span>
+                <span style='color: #94A3B8; font-size: 0.95rem;'>Registros cargados: <b>{}</b></span>
             </div>
         """.format(len(df_alumnos)), unsafe_allow_html=True)
     else:
         st.markdown("""
             <div class='sidebar-status'>
                 <span style='color: #EF4444; font-weight: 700;'>🔴 Error de Conexión</span><br>
-                <span style='color: #94A3B8; font-size: 0.9rem;'>Verifique credenciales</span>
+                <span style='color: #94A3B8; font-size: 0.95rem;'>Verifique credenciales</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -467,7 +470,7 @@ elif modo_app == "📝 Modo B: Auditoría Demográfica":
 
     if btn_auditar:
         if not input_nombre or not input_ap_pat:
-            st.warning("⚠️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
+            st.warning("⚠️️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
         else:
             with st.spinner("⚙️ Generando prefijo teórico y contrastando base de datos..."):
                 input_fecha = datetime.date(int(input_anio), int(input_mes), int(input_dia))
@@ -721,10 +724,9 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
             
             df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
             
-            # Exportación a formato CSV universal (100% compatible sin librerías adicionales)
             csv_data = df_mostrar.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Descargar Reporte Ejecutivo en CSV (Excel)",
+                label="📥 Descargar Reporte Ejecutivo en CSV",
                 data=csv_data,
                 file_name="Reporte_Auditoria_CURP.csv",
                 mime="text/csv",
@@ -743,7 +745,7 @@ elif modo_app == "📊 Modo D: Auditoría Masiva":
                 hide_index=True
             )
 
-else:
+elif modo_app == "🛡️ Modo E: Antifraude y Duplicados":
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
     st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
 
@@ -831,7 +833,6 @@ else:
 
                 if not df_dup_export.empty or not df_sim_export.empty:
                     st.write("")
-                    # Combinar en un CSV exportable universal
                     csv_anti = df_dup_export.to_csv(index=False).encode('utf-8') if not df_dup_export.empty else df_sim_export.to_csv(index=False).encode('utf-8')
                     st.download_button(
                         label="📥 Descargar Reporte Antifraude en CSV",
@@ -840,3 +841,72 @@ else:
                         mime="text/csv",
                         use_container_width=True
                     )
+
+# ==============================================================================
+# MODO F: DASHBOARD DIRECTIVO (ANÁLISIS GENERAL DE MATRÍCULA)
+# ==============================================================================
+else:
+    st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
+    st.write("Panel general de indicadores clave sobre la matrícula escolar actual cargada desde Google Sheets.")
+
+    if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+        st.error("La base de datos está vacía o no contiene la información necesaria para generar el dashboard.")
+    else:
+        total_matriz = len(df_alumnos)
+        
+        # Calcular validez general
+        validas_count = 0
+        for _, r in df_alumnos.iterrows():
+            if validar_digito_verificador_curp(str(r.get('CURP', ''))):
+                validas_count += 1
+        invalidas_count = total_matriz - validas_count
+        porcentaje_salud = round((validas_count / total_matriz) * 100, 1) if total_matriz > 0 else 0
+
+        # Tarjetas KPI Superiores
+        st.markdown(f"""
+            <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+                <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
+                    <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">MATRÍCULA TOTAL</div>
+                    <div style="font-size: 1.8rem; color: {text_main}; font-weight: 700;">{total_matriz} 👥</div>
+                </div>
+                <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #10B981;">
+                    <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">ÍNDICE DE SALUD CURP</div>
+                    <div style="font-size: 1.8rem; color: #10B981; font-weight: 700;">{porcentaje_salud}% 🟢</div>
+                </div>
+                <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #EF4444;">
+                    <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">EXPEDIENTES CON ALERTA</div>
+                    <div style="font-size: 1.8rem; color: #EF4444; font-weight: 700;">{invalidas_count} 🔴</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        col_d1, col_d2 = st.columns(2)
+
+        with col_d1:
+            st.markdown("#### 📚 Distribución de Alumnos por Grado y Grupo")
+            if 'Grado' in df_alumnos.columns and 'Grupo' in df_alumnos.columns:
+                df_alumnos['Grado_Grupo'] = df_alumnos['Grado'].astype(str) + "° '" + df_alumnos['Grupo'].astype(str) + "'"
+                conteo_grupos = df_alumnos['Grado_Grupo'].value_counts().reset_index()
+                conteo_grupos.columns = ['Grado y Grupo', 'Total Alumnos']
+                st.dataframe(conteo_grupos, use_container_width=True, hide_index=True)
+            else:
+                st.info("No se encontraron las columnas 'Grado' o 'Grupo' en la hoja de cálculo.")
+
+        with col_d2:
+            st.markdown("#### 🗺️ Procedencia por Entidad de Nacimiento")
+            if 'CURP' in df_alumnos.columns:
+                entidades_encontradas = []
+                for _, r in df_alumnos.iterrows():
+                    c = str(r.get('CURP', '')).strip().upper()
+                    if len(c) == 18:
+                        code = c[11:13]
+                        entidades_encontradas.append(CODIGOS_ESTADOS.get(code, "OTRO / EXTRANJERO"))
+                    else:
+                        entidades_encontradas.append("SIN CURP VÁLIDA")
+                
+                df_entidades = pd.DataFrame(entidades_encontradas, columns=['Entidad'])
+                conteo_entidades = df_entidades['Entidad'].value_counts().reset_index()
+                conteo_entidades.columns = ['Entidad Federativa', 'Alumnos']
+                st.dataframe(conteo_entidades, use_container_width=True, hide_index=True)
+            else:
+                st.info("No hay datos suficientes para calcular entidades.")
