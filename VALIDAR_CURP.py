@@ -205,7 +205,8 @@ modo_app = st.radio(
     [
         "🔍 Modo A: Búsqueda y Validación por CURP", 
         "📝 Modo B: Auditoría por Datos Demográficos (Manual)", 
-        "⚡ Modo C: Búsqueda Inteligente por Nombre"
+        "⚡ Modo C: Búsqueda Inteligente por Nombre",
+        "📊 Modo D: Auditoría Masiva de CURPs"
     ],
     horizontal=True
 )
@@ -440,12 +441,12 @@ elif modo_app == "📝 Modo B: Auditoría por Datos Demográficos (Manual)":
                         else:
                             st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Requiere revisión manual en gob.mx**.")
                 else:
-                    st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
+                    st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastار.")
 
 # ==============================================================================
 # MODO C: BÚSQUEDA INTELIGENTE Y DESAMBIGUACIÓN AUTOMÁTICA
 # ==============================================================================
-else:
+elif modo_app == "⚡ Modo C: Búsqueda Inteligente por Nombre":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
     st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
 
@@ -455,7 +456,6 @@ else:
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
             st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
         else:
-            # Búsqueda insensible a mayúsculas en Nombre o Apellidos
             mask = (
                 df_alumnos['Nombre(s)'].astype(str).str.contains(termino_busqueda, case=False, na=False) |
                 df_alumnos['Apellido Paterno'].astype(str).str.contains(termino_busqueda, case=False, na=False) |
@@ -468,7 +468,6 @@ else:
                 st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
             
             elif cantidad == 1:
-                # CASO 1: Coincidencia única
                 alumno = alumnos_encontrados.iloc[0]
                 
                 nom_g = str(alumno.get('Nombre(s)', '')).strip()
@@ -514,7 +513,6 @@ else:
                     """, unsafe_allow_html=True)
                     
             else:
-                # CASO 2: Múltiples resultados (Homónimos / Desambiguación)
                 st.info(f"ℹ️ Se encontraron **{cantidad} alumnos** con similitudes. Selecciona al alumno exacto para continuar:")
                 
                 opciones_alumnos = []
@@ -542,3 +540,74 @@ else:
                     st.success("🟢 El alumno seleccionado cuenta con una CURP matemáticamente correcta.")
                 else:
                     st.error("🚨 Alerta Directiva: El alumno seleccionado tiene una CURP con errores en el dígito verificador (Requiere revisión manual).")
+
+# ==============================================================================
+# MODO D: AUDITORÍA MASIVA DE CURPS EN GOOGLE SHEETS
+# ==============================================================================
+else:
+    st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
+    st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero en color rojo.")
+
+    if st.button("🚀 Ejecutar Análisis Masivo", type="primary", use_container_width=True):
+        if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
+            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+        else:
+            resultados_masivos = []
+            
+            for index, row in df_alumnos.iterrows():
+                curp_val = str(row.get('CURP', '')).strip().upper()
+                nombre_val = f"{row.get('Nombre(s', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
+                # Por si la columna se llama 'Nombre(s)' exacto:
+                if not nombre_val:
+                    nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
+                
+                grado_val = row.get('Grado', '')
+                grupo_val = row.get('Grupo', '')
+                
+                # Comprobación matemática
+                es_valida = validar_digito_verificador_curp(curp_val) if curp_val else False
+                estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Falso / Erróneo)"
+                
+                resultados_masivos.append({
+                    "Índice": index + 2, # Número de fila en Sheets (asumiendo cabecera en fila 1)
+                    "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
+                    "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
+                    "CURP": curp_val if curp_val else "VACÍA",
+                    "Estado Matético": estado_str,
+                    "_es_valido_bool": es_valida # Columna auxiliar para ordenar
+                })
+                
+            df_reporte = pd.DataFrame(resultados_masivos)
+            
+            # Ordenar para que los inválidos (Falsos/False) aparezcan PRIMERO
+            df_reporte = df_reporte.sort_values(by="_es_valido_bool", ascending=True)
+            
+            # Contadores generales
+            total_alumnos = len(df_reporte)
+            total_invalidos = len(df_reporte[df_reporte['_es_valido_bool'] == False])
+            total_validos = len(df_reporte[df_reporte['_es_valido_bool'] == True])
+            
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                st.metric("Total Alumnos Analizados", total_alumnos)
+            with col_m2:
+                st.metric("CURPs Correctas (Verdes)", total_validos)
+            with col_m3:
+                st.metric("CURPs con Errores (Rojas)", total_invalidos)
+                
+            st.write("")
+            
+            # Eliminar la columna auxiliar antes de mostrar en pantalla
+            df_mostrar = df_reporte.drop(columns=["_es_valido_bool"])
+            
+            # Función para colorear filas en la tabla de Streamlit según validez
+            def colorear_estado(val):
+                color = '#ffcccc' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#d4edda'
+                return f'background-color: {color}'
+                
+            st.markdown("#### Listado General de Auditoría (Ordenado con alertas prioritarias al inicio):")
+            st.dataframe(
+                df_mostrar.style.applymap(colorear_estado, subset=['Estado Matético']),
+                use_container_width=True,
+                hide_index=True
+            )
