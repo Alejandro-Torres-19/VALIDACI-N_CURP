@@ -138,7 +138,6 @@ def conectar_google_sheets():
     
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    # Conexión conectada al nuevo archivo de Google Sheets
     spreadsheet = client.open("15DES0024B") 
     return spreadsheet.get_worksheet(0)
 
@@ -336,7 +335,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                             
                             errores = []
                             if not es_matematicamente_valida:
-                                errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso.")
+                                errores.append("⚠️️ **Alerta:** El dígito verificador matemático de la CURP es incorrecto.")
                             if not val_ap_p:
                                 errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
                             if not val_ap_m and ap_m_db:
@@ -562,8 +561,8 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                 else:
                     st.markdown("""
                         <div class='error-box'>
-                            <h3>🔴 Alerta Crítica</h3>
-                            <p>El dígito verificador de esta CURP es falso (posible CURP inventada o alterada).</p>
+                            <h3>🔴 Alerta</h3>
+                            <p>El dígito verificador de esta CURP es incorrecto (requiere revisión oficial).</p>
                         </div>
                     """, unsafe_allow_html=True)
             else:
@@ -655,7 +654,7 @@ elif modo_app == "📊 Auditoría Masiva":
                     grupo_val = row.get('Grupo', '')
                     
                     es_valida = validar_digito_verificador_curp(curp_val) if curp_val else False
-                    estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Falso / Erróneo)"
+                    estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Incorrecto / Erróneo)"
                     
                     resultados_masivos.append({
                         "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
@@ -798,7 +797,7 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# MODO F: DASHBOARD DIRECTIVO (ORIGINAL Y LIMPIO)
+# MODO F: DASHBOARD DIRECTIVO
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
