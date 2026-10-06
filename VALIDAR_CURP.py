@@ -138,7 +138,8 @@ def conectar_google_sheets():
     
     creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    spreadsheet = client.open("prueba validacion curp") 
+    # Conexión conectada al nuevo archivo de Google Sheets
+    spreadsheet = client.open("15DES0024B") 
     return spreadsheet.get_worksheet(0)
 
 @st.cache_data(ttl=600)
@@ -265,7 +266,7 @@ with st.sidebar:
     if conexion_activa:
         st.markdown("""
             <div class='sidebar-status'>
-                <span style='color: #10B981; font-weight: 700;'>🟢 Conectado a Sheets</span><br>
+                <span style='color: #10B981; font-weight: 700;'>🟢 Conectado (15DES0024B)</span><br>
                 <span style='color: #94A3B8; font-size: 0.95rem;'>Registros cargados: <b>{}</b></span>
             </div>
         """.format(len(df_alumnos)), unsafe_allow_html=True)
@@ -284,7 +285,7 @@ with st.sidebar:
         st.rerun()
 
 st.markdown("<h1 class='main-title'>🎓 Validador y Analizador Integral de CURP</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Plataforma institucional de validación y control escolar automatizado</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Plataforma institucional de validación y control escolar (Plantel 15DES0024B)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 if modo_app == "🔍 Búsqueda por CURP":
@@ -326,25 +327,9 @@ if modo_app == "🔍 Búsqueda por CURP":
                             grado_db = str(resultado.get('Grado', '')).strip()
                             grupo_db = str(resultado.get('Grupo', '')).strip()
                             cct_db = str(resultado.get('CCT', '')).strip()
-                            fecha_db = str(resultado.get('Fecha de Nacimiento', '')).strip()
-                            entidad_db = str(resultado.get('Entidad Nacimiento', '')).strip().upper()
                             
                             nombre_completo = f"{nombre_db} {ap_p_db} {ap_m_db}"
                             
-                            fecha_mostrar = fecha_db
-                            coincide_fecha = False
-                            if fecha_db and fecha_db != "nan" and fecha_db != "":
-                                try:
-                                    fecha_dt = pd.to_datetime(fecha_db, dayfirst=True, errors='coerce')
-                                    if pd.notna(fecha_dt):
-                                        fecha_db_norm = fecha_dt.strftime('%Y-%m-%d')
-                                        fecha_mostrar = fecha_db_norm
-                                        coincide_fecha = (fecha_db_norm == info_curp['fecha_nacimiento'])
-                                    else:
-                                        coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
-                                except Exception:
-                                    coincide_fecha = (fecha_db == info_curp['fecha_nacimiento'])
-
                             val_ap_p = ap_p_db.startswith(info_curp['letra_primer_apellido']) if ap_p_db else False
                             val_ap_m = ap_m_db.startswith(info_curp['letra_segundo_apellido']) if ap_m_db else False
                             val_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
@@ -352,8 +337,6 @@ if modo_app == "🔍 Búsqueda por CURP":
                             errores = []
                             if not es_matematicamente_valida:
                                 errores.append("⚠️ **Alerta Crítica:** El dígito verificador matemático de la CURP es falso.")
-                            if not coincide_fecha:
-                                errores.append(f"Fecha en Sheets ({fecha_mostrar}) no coincide con la CURP ({info_curp['fecha_nacimiento']}).")
                             if not val_ap_p:
                                 errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
                             if not val_ap_m and ap_m_db:
@@ -386,22 +369,6 @@ if modo_app == "🔍 Búsqueda por CURP":
                                         <div class='info-card'>
                                             <div class='info-label'>CCT Escuela</div>
                                             <div class='info-value'>{cct_db if cct_db else 'No asignado'}</div>
-                                        </div>
-                                    """, unsafe_allow_html=True)
-                                    
-                                col3, col4 = st.columns(2)
-                                with col3:
-                                    st.markdown(f"""
-                                        <div class='info-card'>
-                                            <div class='info-label'>Fecha de Nacimiento</div>
-                                            <div class='info-value'>{fecha_mostrar}</div>
-                                        </div>
-                                    """, unsafe_allow_html=True)
-                                with col4:
-                                    st.markdown(f"""
-                                        <div class='info-card'>
-                                            <div class='info-label'>Entidad (Sheets)</div>
-                                            <div class='info-value'>{entidad_db if entidad_db else 'No especificada'}</div>
                                         </div>
                                     """, unsafe_allow_html=True)
 
@@ -516,7 +483,7 @@ elif modo_app == "📝 Auditoría Demográfica":
                             if coincide_base:
                                 st.success(f"🟢 **Coherencia Validada:** Los datos demográficos coinciden con la estructura de la CURP registrada.")
                             else:
-                                st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema. **Verifica si la entidad o fecha de nacimiento en Google Sheets difiere de la CURP**.")
+                                st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema.")
                     else:
                         st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
 
@@ -709,7 +676,7 @@ elif modo_app == "📊 Auditoría Masiva":
                 <div style="display: flex; gap: 15px; margin-bottom: 25px;">
                     <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #3B82F6;">
                         <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">TOTAL ALUMNOS</div>
-                        <div style="font-size: 1.8rem; color: {text_main}; font-weight: 700;">{total_alumnos} 🎓</div>
+                        <div style="font-size: 1.8rem; color: {text_main}; font-weight: 700;">{total_alumnos} 👥</div>
                     </div>
                     <div style="flex: 1; background-color: {bg_card}; border: 1px solid {border_card}; padding: 15px; border-radius: 10px; border-left: 5px solid #10B981;">
                         <div style="font-size: 0.8rem; color: {text_label}; font-weight: 600;">CURPS VÁLIDAS</div>
@@ -738,7 +705,7 @@ elif modo_app == "📊 Auditoría Masiva":
                 color = '#4A1515' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#113a22'
                 return f'background-color: {color}; color: #ffffff;'
                 
-            st.markdown("#### Listado General de Auditoría (Ordenado con alertas prioritarias al inicio):")
+            st.markdown("#### Listado General de Auditoría:")
             st.dataframe(
                 df_mostrar.style.map(colorear_estado, subset=['Estado']),
                 use_container_width=True,
@@ -785,7 +752,6 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                     
                 st.markdown("---")
                 st.markdown("#### 2️⃣ Análisis de Similitud de Nombres (Posibles Alumnos Duplicados)")
-                st.write("Búsqueda cruzada mediante algoritmos de aproximación para detectar nombres muy parecidos (variaciones de dedo o doble registro).")
                 
                 nombres_completos = []
                 for _, row in df_alumnos.iterrows():
@@ -831,19 +797,8 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                         </div>
                     """, unsafe_allow_html=True)
 
-                if not df_dup_export.empty or not df_sim_export.empty:
-                    st.write("")
-                    csv_anti = df_dup_export.to_csv(index=False).encode('utf-8') if not df_dup_export.empty else df_sim_export.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Descargar Reporte Antifraude en CSV",
-                        data=csv_anti,
-                        file_name="Reporte_Antifraude_Escolar.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-
 # ==============================================================================
-# MODO F: DASHBOARD DIRECTIVO INTERACTIVO (MEJORADO CON ALTAIR Y FILTROS)
+# MODO F: DASHBOARD DIRECTIVO (ORIGINAL Y LIMPIO)
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
@@ -888,7 +843,6 @@ else:
                 conteo_grupos = df_alumnos['Grado_Grupo'].value_counts().reset_index()
                 conteo_grupos.columns = ['Grado_Grupo', 'Total']
                 
-                # Gráfica de barras Altair con subtítulos legibles y claros
                 chart_grupos = alt.Chart(conteo_grupos).mark_bar(color='#3B82F6', cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
                     x=alt.X('Grado_Grupo:N', sort=None, title='Grado y Grupo', axis=alt.Axis(labelAngle=0)),
                     y=alt.Y('Total:Q', title='Total de Alumnos'),
@@ -905,7 +859,6 @@ else:
                 'Cantidad': [validas_count, invalidas_count]
             })
             
-            # Gráfica de barras condicional: Verde para válidas, Rojo para inválidas
             chart_salud = alt.Chart(df_salud).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
                 x=alt.X('Estado:N', sort=None, title='', axis=alt.Axis(labelAngle=0)),
                 y=alt.Y('Cantidad:Q', title='Cantidad de Alumnos'),
@@ -930,7 +883,6 @@ else:
             conteo_entidades = df_entidades['Entidad'].value_counts().reset_index()
             conteo_entidades.columns = ['Entidad Federativa', 'Alumnos']
             
-            # Menú desplegable estilo filtro de Excel (Multiselect)
             todas_entidades = sorted(conteo_entidades['Entidad Federativa'].unique().tolist())
             entidades_seleccionadas = st.multiselect(
                 "🔍 Filtrar Entidades Federativas (Filtro tipo Excel):",
@@ -938,7 +890,6 @@ else:
                 default=todas_entidades
             )
             
-            # Filtrar el DataFrame según la selección del usuario
             df_filtrado = conteo_entidades[conteo_entidades['Entidad Federativa'].isin(entidades_seleccionadas)]
             
             if not df_filtrado.empty:
