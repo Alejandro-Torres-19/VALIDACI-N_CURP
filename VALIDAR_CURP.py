@@ -669,11 +669,13 @@ elif modo_app == "📊 Auditoría Masiva":
                     nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
                     grado_val = row.get('Grado', '')
                     grupo_val = row.get('Grupo', '')
+                    cct_val = str(row.get('CCT', '')).strip()
                     
                     es_valida = validar_digito_verificador_curp(curp_val) if curp_val else False
                     estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Incorrecto / Erróneo)"
                     
                     resultados_masivos.append({
+                        "CCT": cct_val if cct_val else "S/CCT",
                         "Alumno": nombre_val if nombre_val else "Sin Nombre Registrado",
                         "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
                         "CURP": curp_val if curp_val else "VACÍA",
