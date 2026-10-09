@@ -10,18 +10,33 @@ import altair as alt
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
-    page_title="Validador y Analizador CURP - Escolar", 
+    page_title="Verificador Integral CURP - Escolar", 
     page_icon="🎓", 
     layout="wide"
 )
 
-# --- CAPTURA DE TEMA (CLARO / OSCURO) DESDE LA BARRA LATERAL ---
+# --- CATÁLOGO DE HOJAS DENTRO DEL DOCUMENTO GLOBAL "VALIDADOR CURP" ---
+HOJAS_DISPONIBLES = {
+    "Zona 1": "ZONA 1",
+    "Plantel 15DES0024B": "15DES0024B"
+}
+
+# --- CAPTURA DE TEMA Y SELECCIÓN DE HOJA DESDE LA BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### 🎓 Panel Directivo")
     st.markdown("Sistema de Control Escolar")
     st.markdown("---")
     
     modo_visual = st.radio("🎨 Tema Visual:", ["🌙 Modo Oscuro", "☀️ Modo Claro"], horizontal=False)
+    st.markdown("---")
+    
+    st.markdown("##### 🗂️ Sección / Zona Activa")
+    hoja_seleccionada = st.selectbox(
+        "Selecciona la hoja a analizar:",
+        options=list(HOJAS_DISPONIBLES.keys()),
+        label_visibility="collapsed"
+    )
+    nombre_hoja_activa = HOJAS_DISPONIBLES[hoja_seleccionada]
     st.markdown("---")
 
 # Estilos CSS dinámicos y ampliados según el tema seleccionado
@@ -125,27 +140,28 @@ CODIGOS_ESTADOS = {
     "NE": "NACIDO EN EL EXTRANJERO"
 }
 
-@st.cache_resource
-def conectar_google_sheets():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    credentials_dict = dict(st.secrets["gcp_service_account"])
-    pk = credentials_dict.get("private_key", "")
-    try:
-        pk = pk.encode().decode('unicode-escape')
-    except Exception:
-        pk = pk.replace("\\n", "\n")
-    credentials_dict["private_key"] = pk
-    
-    creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
-    client = gspread.authorize(creds)
-    spreadsheet = client.open("15DES0024B") 
-    return spreadsheet.get_worksheet(0)
-
+# Función para cargar datos conectándose al archivo global "VALIDADOR CURP" y leyendo la hoja específica
 @st.cache_data(ttl=600)
-def cargar_datos():
+def cargar_datos_hoja(nombre_hoja):
     try:
-        ws = conectar_google_sheets()
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        credentials_dict = dict(st.secrets["gcp_service_account"])
+        pk = credentials_dict.get("private_key", "")
+        try:
+            pk = pk.encode().decode('unicode-escape')
+        except Exception:
+            pk = pk.replace("\\n", "\n")
+        credentials_dict["private_key"] = pk
+        
+        creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        
+        # Archivo global en Google Drive
+        spreadsheet = client.open("VALIDADOR CURP") 
+        # Selecciona la hoja específica dentro del documento
+        ws = spreadsheet.worksheet(nombre_hoja)
         data = ws.get_all_values()
+        
         if len(data) > 1:
             headers = [h.strip() for h in data[0]]
             rows = []
@@ -163,7 +179,7 @@ def cargar_datos():
     except Exception as e:
         return pd.DataFrame(), False
 
-df_alumnos, conexion_activa = cargar_datos()
+df_alumnos, conexion_activa = cargar_datos_hoja(nombre_hoja_activa)
 
 def validar_digito_verificador_curp(curp: str) -> bool:
     curp = curp.strip().upper()
@@ -263,17 +279,18 @@ with st.sidebar:
     st.markdown("##### 🔌 Estado del Sistema")
     
     if conexion_activa:
-        st.markdown("""
+        st.markdown(f"""
             <div class='sidebar-status'>
-                <span style='color: #10B981; font-weight: 700;'>🟢 Conectado (15DES0024B)</span><br>
-                <span style='color: #94A3B8; font-size: 0.95rem;'>Registros cargados: <b>{}</b></span>
+                <span style='color: #10B981; font-weight: 700;'>🟢 Conectado (VALIDADOR CURP)</span><br>
+                <span style='color: {text_main}; font-size: 0.9rem;'>Hoja: <b>{hoja_seleccionada}</b></span><br>
+                <span style='color: #94A3B8; font-size: 0.85rem;'>Registros cargados: <b>{len(df_alumnos)}</b></span>
             </div>
-        """.format(len(df_alumnos)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     else:
         st.markdown("""
             <div class='sidebar-status'>
                 <span style='color: #EF4444; font-weight: 700;'>🔴 Error de Conexión</span><br>
-                <span style='color: #94A3B8; font-size: 0.95rem;'>Verifique credenciales</span>
+                <span style='color: #94A3B8; font-size: 0.95rem;'>Verifique credenciales o nombre de la hoja</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -283,8 +300,8 @@ with st.sidebar:
         st.cache_resource.clear()
         st.rerun()
 
-st.markdown("<h1 class='main-title'>🎓 Validador y Analizador Integral de CURP</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Plataforma institucional de validación y control escolar (Plantel 15DES0024B)</p>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-title'>🎓 Verificador Integral CURP</h1>", unsafe_allow_html=True)
+st.markdown(f"<p class='sub-title'>Plataforma institucional de validación y control escolar (Analizando: <b>{hoja_seleccionada}</b>)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 if modo_app == "🔍 Búsqueda por CURP":
@@ -306,7 +323,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                     info_curp = decodificar_curp(curp_input)
                     
                     if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-                        st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+                        st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
                     else:
                         lista_curps_db = df_alumnos['CURP'].astype(str).str.strip().str.upper().tolist()
                         match_exacto = df_alumnos[df_alumnos['CURP'].str.strip().str.upper() == curp_input]
@@ -335,7 +352,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                             
                             errores = []
                             if not es_matematicamente_valida:
-                                errores.append("⚠️️ **Alerta:** El dígito verificador matemático de la CURP es incorrecto.")
+                                errores.append("⚠️ **Alerta:** El dígito verificador matemático de la CURP es incorrecto.")
                             if not val_ap_p:
                                 errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
                             if not val_ap_m and ap_m_db:
@@ -407,11 +424,11 @@ if modo_app == "🔍 Búsqueda por CURP":
                                     for err in errores:
                                         st.warning(f"• {err}")
                         else:
-                            st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la base de datos.")
+                            st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la hoja.")
 
 elif modo_app == "📝 Auditoría Demográfica":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
-    st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja de datos.")
+    st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja.")
 
     with st.form("form_auditoria"):
         col_n1, col_n2 = st.columns(2)
@@ -449,12 +466,12 @@ elif modo_app == "📝 Auditoría Demográfica":
                 st.info(f"⚙️ **Base Teórica Generada:** `{prefijo_calculado}XXXXXXXX` (Primeros 10-11 caracteres lógicos)")
                 
                 if df_alumnos.empty:
-                    st.error("La base de datos de Google Sheets está vacía.")
+                    st.error("La hoja seleccionada está vacía.")
                 else:
                     coincidencias = df_alumnos[df_alumnos['Apellido Paterno'].astype(str).str.upper().str.contains(input_ap_pat.upper(), na=False)]
                     
                     if not coincidencias.empty:
-                        st.success(f"Se encontraron {len(coincidencias)} registros con similitud de apellido en Google Sheets:")
+                        st.success(f"Se encontraron {len(coincidencias)} registros con similitud de apellido en la hoja:")
                         
                         for idx, row in coincidencias.iterrows():
                             curp_registrada = str(row.get('CURP', '')).strip().upper()
@@ -484,17 +501,17 @@ elif modo_app == "📝 Auditoría Demográfica":
                             else:
                                 st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema.")
                     else:
-                        st.warning("No se encontró ningún registro en Google Sheets con ese Apellido Paterno para contrastar.")
+                        st.warning("No se encontró ningún registro con ese Apellido Paterno para contrastar.")
 
 elif modo_app == "⚡ Búsqueda Inteligente":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
     st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
 
-    termino_busqueda = st.text_input("Buscar alumno en Google Sheets:", placeholder="Ej. Alejandro Torres o solo Torres")
+    termino_busqueda = st.text_input("Buscar alumno en la hoja:", placeholder="Ej. Alejandro Torres o solo Torres")
 
     if termino_busqueda:
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+            st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
         else:
             with st.spinner("⚡ Buscando coincidencias en la base escolar..."):
                 mask = (
@@ -506,7 +523,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                 cantidad = len(alumnos_encontrados)
                 
             if cantidad == 0:
-                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la base de datos.")
+                st.warning("⚠️ No se encontró ningún alumno con ese nombre o apellido en la hoja.")
             elif cantidad == 1:
                 alumno = alumnos_encontrados.iloc[0]
                 nom_g = str(alumno.get('Nombre(s)', '')).strip()
@@ -638,12 +655,12 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     """, unsafe_allow_html=True)
 
 elif modo_app == "📊 Auditoría Masiva":
-    st.markdown("### 📊 Auditoría Masiva de la Base de Datos")
-    st.write("Revisión automática de todas las CURPs registradas en Google Sheets. Los registros con anomalías aparecerán primero.")
+    st.markdown("### 📊 Auditoría Masiva de la Hoja")
+    st.write(f"Revisión automática de todas las CURPs en **{hoja_seleccionada}**. Los registros con anomalías aparecerán primero.")
 
     if st.button("🚀 Ejecutar Análisis Masivo", type="primary", use_container_width=True):
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+            st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
         else:
             with st.spinner("📊 Analizando masivamente la base de datos escolar..."):
                 resultados_masivos = []
@@ -713,11 +730,11 @@ elif modo_app == "📊 Auditoría Masiva":
 
 elif modo_app == "🛡️ Antifraude y Duplicados":
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
-    st.write("Escaneo avanzado de la base de datos para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados con nombres similares.")
+    st.write(f"Escaneo avanzado en **{hoja_seleccionada}** para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados.")
 
     if st.button("🔍 Iniciar Escaneo Antifraude", type="primary", use_container_width=True):
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-            st.error("La base de datos de Google Sheets está vacía o no contiene la columna 'CURP'.")
+            st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
         else:
             with st.spinner("🛡️ Ejecutando escaneo antifraude y detección de colisiones..."):
                 st.markdown("---")
@@ -745,7 +762,7 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Sin Colisiones de CURP</h3>
-                            <p>No se detectó ninguna CURP repetida en toda la base de datos.</p>
+                            <p>No se detectó ninguna CURP repetida en toda la hoja.</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -801,10 +818,10 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
-    st.write("Panel interactivo con indicadores clave y gráficas visuales sobre la matrícula escolar actual.")
+    st.write(f"Panel interactivo de analítica para: **{hoja_seleccionada}**.")
 
     if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
-        st.error("La base de datos está vacía o no contiene la información necesaria para generar el dashboard.")
+        st.error("La hoja seleccionada está vacía o no contiene la información necesaria para generar el dashboard.")
     else:
         total_matriz = len(df_alumnos)
         
