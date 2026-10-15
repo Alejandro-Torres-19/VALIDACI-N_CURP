@@ -135,7 +135,7 @@ CODIGOS_ESTADOS = {
     "GR": "GUERRERO", "HG": "HIDALGO", "JC": "JALISCO", "MC": "ESTADO DE MÉXICO",
     "MN": "MICHOACÁN", "MS": "MORELOS", "NT": "NAYARIT", "NL": "NUEVO LEÓN",
     "OC": "OAXACA", "PL": "PUEBLA", "QT": "QUERÉTARO", "QR": "QUINTANA ROO",
-    "SL": "SAN LUIS POTOSÍ", "SP": "SINALOA", "SR": "SONORA", "TC": "TABASCO",
+    "SL": "SINALOA", "SP": "SAN LUIS POTOSÍ", "SR": "SONORA", "TC": "TABASCO",
     "TS": "TAMAULIPAS", "TL": "TLAXCALA", "VZ": "VERACRUZ", "YN": "YUCATÁN", "ZS": "ZACATECAS",
     "NE": "NACIDO EN EL EXTRANJERO"
 }
@@ -257,7 +257,7 @@ ENTIDADES_NORMALIZADAS = {
     "HIDALGO": "HG", "JALISCO": "JC", "ESTADO DE MEXICO": "MC", "MEXICO": "MC",
     "MICHOACAN": "MN", "MICHOACAN DE OCAMPO": "MN", "MORELOS": "MS", "NAYARIT": "NT",
     "NUEVO LEON": "NL", "OAXACA": "OC", "PUEBLA": "PL", "QUERETARO": "QT",
-    "QUINTANA ROO": "QR", "SAN LUIS POTOSI": "SL", "SINALOA": "SP", "SONORA": "SR",
+    "QUINTANA ROO": "QR", "SAN LUIS POTOSI": "SP", "SINALOA": "SL", "SONORA": "SR",
     "TABASCO": "TC", "TAMAULIPAS": "TS", "TLAXCALA": "TL", "VERACRUZ": "VZ",
     "VERACRUZ DE IGNACIO DE LA LLAVE": "VZ", "YUCATAN": "YN", "ZACATECAS": "ZS",
     "EXTRANJERO": "NE", "NACIDO EN EL EXTRANJERO": "NE",
@@ -365,9 +365,9 @@ def auditar_alumno(row):
         row.get("Nombre(s)", ""), row.get("Apellido Paterno", ""), row.get("Apellido Materno", "")
     )
     if curp[:4] != cuatro:
-        errores.append(f"Posiciones 1-4: la CURP trae '{curp[:4]}' pero los nombres generan '{cuatro}'")
+        errores.append(f"Error en las iniciales: la CURP trae '{curp[:4]}' y por los nombres debería ser '{cuatro}'")
     if curp[13:16] != consonantes:
-        errores.append(f"Consonantes internas (pos. 14-16): la CURP trae '{curp[13:16]}' pero los nombres generan '{consonantes}'")
+        errores.append(f"Error en las consonantes: la CURP trae '{curp[13:16]}' y por los nombres debería ser '{consonantes}'")
 
     # 3) Fecha de nacimiento
     yy, mm, dd = curp[4:6], curp[6:8], curp[8:10]
@@ -407,7 +407,7 @@ def auditar_alumno(row):
 
     # 6) Homoclave: letra para nacidos desde 2000, dígito antes de 2000
     if int(yy) <= ANIO_CORTE_SIGLO and curp[16].isdigit():
-        errores.append("La posición 17 debería ser una letra (nacido en 2000 o después)")
+        errores.append("Error en el número identificador (debería ser una letra)")
 
     return {"valida": not errores, "errores": errores, "avisos": avisos}
 
@@ -540,7 +540,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                             if match_exacto.empty:
                                 errores.append(f"⚠️ **La CURP buscada no coincide exactamente con la registrada en la hoja** (`{str(resultado.get('CURP', '')).strip().upper()}`). Es muy probable que la CURP de la hoja tenga un error de captura.")
                             for err_det in auditar_alumno(resultado)["errores"]:
-                                if not err_det.startswith(("Dígito verificador", "Posiciones 1-4")):
+                                if not err_det.startswith(("Dígito verificador", "Error en las iniciales")):
                                     errores.append(f"Revisión de la CURP registrada: {err_det}")
 
                             st.write("")
