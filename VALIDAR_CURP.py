@@ -7,20 +7,20 @@ import unicodedata
 import datetime
 from rapidfuzz import process, fuzz
 import altair as alt
- 
+
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
     page_title="Verificador Integral CURP - Escolar", 
     page_icon="🎓", 
     layout="wide"
 )
- 
+
 # --- CATÁLOGO DE HOJAS DENTRO DEL DOCUMENTO GLOBAL "VALIDADOR CURP" ---
 HOJAS_DISPONIBLES = {
     "Zona 1": "ZONA 1",
     "Plantel 15DES0024B": "15DES0024B"
 }
- 
+
 # --- CAPTURA DE TEMA Y SELECCIÓN DE HOJA DESDE LA BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### 🎓 Panel Directivo")
@@ -38,7 +38,7 @@ with st.sidebar:
     )
     nombre_hoja_activa = HOJAS_DISPONIBLES[hoja_seleccionada]
     st.markdown("---")
- 
+
 # Estilos CSS dinámicos y ampliados según el tema seleccionado
 if "Oscuro" in modo_visual:
     bg_card = "#1E293B"
@@ -64,7 +64,7 @@ else:
     error_bg = "#FEF2F2"
     error_border = "#FECACA"
     error_color = "#991B1B"
- 
+
 st.markdown(f"""
     <style>
         /* --- ANCHO Y TAMAÑO AMPLIADO DE BARRA LATERAL --- */
@@ -73,7 +73,7 @@ st.markdown(f"""
             max-width: 370px !important;
             background-color: {sidebar_bg} !important;
         }}
- 
+
         .main-title {{ font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }}
         .sub-title {{ font-size: 1.1rem; color: #4B5563; text-align: left; margin-bottom: 25px; }}
         
@@ -110,7 +110,7 @@ st.markdown(f"""
             border: 1px solid {border_card};
             margin-bottom: 20px;
         }}
- 
+
         div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
             font-size: 1.2rem !important;
             font-weight: 600 !important;
@@ -127,7 +127,7 @@ st.markdown(f"""
         }}
     </style>
 """, unsafe_allow_html=True)
- 
+
 CODIGOS_ESTADOS = {
     "AS": "AGUASCALIENTES", "BC": "BAJA CALIFORNIA", "BS": "BAJA CALIFORNIA SUR",
     "CC": "CAMPECHE", "CL": "COAHUILA", "CM": "COLIMA", "CS": "CHIAPAS",
@@ -139,7 +139,7 @@ CODIGOS_ESTADOS = {
     "TS": "TAMAULIPAS", "TL": "TLAXCALA", "VZ": "VERACRUZ", "YN": "YUCATÁN", "ZS": "ZACATECAS",
     "NE": "NACIDO EN EL EXTRANJERO"
 }
- 
+
 @st.cache_data(ttl=600)
 def cargar_datos_hoja(nombre_hoja):
     try:
@@ -175,9 +175,9 @@ def cargar_datos_hoja(nombre_hoja):
             return pd.DataFrame(), True
     except Exception as e:
         return pd.DataFrame(), False
- 
+
 df_alumnos, conexion_activa = cargar_datos_hoja(nombre_hoja_activa)
- 
+
 def validar_digito_verificador_curp(curp: str) -> bool:
     curp = curp.strip().upper()
     if len(curp) != 18:
@@ -198,7 +198,7 @@ def validar_digito_verificador_curp(curp: str) -> bool:
     digito_esperado = (10 - (suma % 10)) % 10
     digito_real = int(curp[17]) if curp[17].isdigit() else diccionario.find(curp[17])
     return digito_esperado == digito_real
- 
+
 def decodificar_curp(curp):
     curp = curp.strip().upper()
     if len(curp) != 18:
@@ -215,14 +215,14 @@ def decodificar_curp(curp):
         "codigo_estado": curp[11:13],
         "estado_nacimiento": CODIGOS_ESTADOS.get(curp[11:13], "Desconocido")
     }
- 
+
 def normalizar_texto(texto):
     if not isinstance(texto, str):
         return ""
     texto = unicodedata.normalize('NFD', texto)
     texto = ''.join([c for c in texto if not unicodedata.combining(c)])
     return texto.upper().strip()
- 
+
 # ==============================================================================
 # CORRECCIÓN: VALIDACIÓN COMPLETA DE CURP CONTRA LOS DATOS DEL ALUMNO
 # Regenera las posiciones de la CURP que dependen de los datos (iniciales,
@@ -230,14 +230,14 @@ def normalizar_texto(texto):
 # capturada. Detecta errores que el dígito verificador por sí solo no ve.
 # ==============================================================================
 DICCIONARIO_CURP = "0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
- 
+
 # Para escuelas: yy <= este valor se asume nacido en 2000+ (homoclave con letra en pos. 17)
 ANIO_CORTE_SIGLO = 26
- 
+
 PARTICULAS = {"DA", "DAS", "DE", "DEL", "DER", "DI", "DIE", "DD", "EL", "LA",
               "LOS", "LAS", "LE", "LES", "MAC", "MC", "VAN", "VON", "Y"}
 NOMBRES_COMUNES = {"MARIA", "MA", "JOSE", "J"}
- 
+
 PALABRAS_INCONVENIENTES = {
     "BACA", "BAKA", "BUEI", "BUEY", "CACA", "CACO", "CAGA", "CAGO", "CAKA", "CAKO",
     "COGE", "COGI", "COJA", "COJE", "COJI", "COJO", "COLA", "CULO", "FALO", "FETO",
@@ -248,7 +248,7 @@ PALABRAS_INCONVENIENTES = {
     "PIPI", "PITO", "POPO", "PUTA", "PUTO", "QULO", "RATA", "ROBA", "ROBE", "ROBO",
     "RUIN", "SENO", "TETA", "VACA", "VAGA", "VAGO", "VAKA", "VUEI", "VUEY", "WUEI", "WUEY",
 }
- 
+
 ENTIDADES_NORMALIZADAS = {
     "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
     "CAMPECHE": "CC", "COAHUILA": "CL", "COAHUILA DE ZARAGOZA": "CL", "COLIMA": "CM",
@@ -263,16 +263,16 @@ ENTIDADES_NORMALIZADAS = {
     "EXTRANJERO": "NE", "NACIDO EN EL EXTRANJERO": "NE",
 }
 CODIGOS_ENTIDAD_VALIDOS = set(ENTIDADES_NORMALIZADAS.values())
- 
+
 PATRON_CURP_COMPLETO = re.compile(r"^[A-Z]{4}\d{6}[HMX][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[0-9A-Z]\d$")
- 
+
 def _palabras_curp(texto):
     """Mayúsculas, Ñ->X, sin acentos, sin signos; devuelve lista de palabras."""
     texto = unicodedata.normalize("NFC", str(texto or "")).upper().replace("Ñ", "X")
     texto = unicodedata.normalize("NFD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return re.sub(r"[^A-Z ]", " ", texto).split()
- 
+
 def _palabra_clave_curp(palabras, es_nombre=False):
     """Palabra que cuenta para la CURP (omite partículas y MARIA/JOSE)."""
     if not palabras:
@@ -282,13 +282,13 @@ def _palabra_clave_curp(palabras, es_nombre=False):
         cand = cand[1:]
     sin_part = [p for p in cand if p not in PARTICULAS]
     return (sin_part or cand)[0]
- 
+
 def _vocal_interna_curp(p):
     return next((c for c in p[1:] if c in "AEIOU"), "X")
- 
+
 def _consonante_interna_curp(p):
     return next((c for c in p[1:] if c not in "AEIOU"), "X")
- 
+
 def _parsear_fecha_curp(valor):
     """Devuelve (yy, mm, dd) como strings, o None. Acepta M/D/AAAA, D/M/AAAA, AAAA-MM-DD."""
     if isinstance(valor, (datetime.date, datetime.datetime)):
@@ -306,10 +306,10 @@ def _parsear_fecha_curp(valor):
     if not 1 <= int(mes) <= 12:
         return None
     return f"{int(anio) % 100:02d}", f"{int(mes):02d}", f"{int(dia):02d}"
- 
+
 def _codigo_entidad_curp(texto):
     return ENTIDADES_NORMALIZADAS.get(" ".join(_palabras_curp(texto)))
- 
+
 def _digito_verificador_ok(curp):
     suma = 0
     for i in range(17):
@@ -318,13 +318,13 @@ def _digito_verificador_ok(curp):
             return False
         suma += valor * (18 - i)
     return (10 - suma % 10) % 10 == int(curp[17])
- 
+
 def generar_partes_curp(nombre, ap_paterno, ap_materno):
     """Devuelve (4 iniciales, 3 consonantes internas) que debe llevar la CURP."""
     p1 = _palabra_clave_curp(_palabras_curp(ap_paterno))
     p2 = _palabra_clave_curp(_palabras_curp(ap_materno))
     n = _palabra_clave_curp(_palabras_curp(nombre), es_nombre=True)
- 
+
     cuatro = (
         (p1[0] if p1 else "X")
         + (_vocal_interna_curp(p1) if p1 else "X")
@@ -333,14 +333,14 @@ def generar_partes_curp(nombre, ap_paterno, ap_materno):
     )
     if cuatro in PALABRAS_INCONVENIENTES:
         cuatro = cuatro[0] + "X" + cuatro[2:]
- 
+
     consonantes = (
         (_consonante_interna_curp(p1) if p1 else "X")
         + (_consonante_interna_curp(p2) if p2 else "X")
         + (_consonante_interna_curp(n) if n else "X")
     )
     return cuatro, consonantes
- 
+
 def auditar_alumno(row):
     """
     row: fila (Series/dict) con columnas:
@@ -350,16 +350,16 @@ def auditar_alumno(row):
     """
     errores, avisos = [], []
     curp = str(row.get("CURP", "")).strip().upper()
- 
+
     if not curp:
         return {"valida": False, "errores": ["CURP vacía"], "avisos": []}
     if not PATRON_CURP_COMPLETO.match(curp):
         return {"valida": False, "errores": ["Estructura inválida (no cumple el formato de 18 caracteres)"], "avisos": []}
- 
+
     # 1) Dígito verificador
     if not _digito_verificador_ok(curp):
         errores.append("Dígito verificador incorrecto")
- 
+
     # 2) Iniciales y consonantes internas vs. nombre y apellidos
     cuatro, consonantes = generar_partes_curp(
         row.get("Nombre(s)", ""), row.get("Apellido Paterno", ""), row.get("Apellido Materno", "")
@@ -368,7 +368,7 @@ def auditar_alumno(row):
         errores.append(f"Posiciones 1-4: la CURP trae '{curp[:4]}' pero los nombres generan '{cuatro}'")
     if curp[13:16] != consonantes:
         errores.append(f"Consonantes internas (pos. 14-16): la CURP trae '{curp[13:16]}' pero los nombres generan '{consonantes}'")
- 
+
     # 3) Fecha de nacimiento
     yy, mm, dd = curp[4:6], curp[6:8], curp[8:10]
     try:
@@ -384,14 +384,14 @@ def auditar_alumno(row):
             errores.append(f"Fecha: la CURP dice {yy}{mm}{dd} (AAMMDD) y la hoja dice {f[0]}{f[1]}{f[2]}")
     else:
         avisos.append("Sin fecha de nacimiento en la hoja: no se pudo contrastar")
- 
+
     # 4) Sexo (solo si existe la columna 'SEXO')
     sexo_hoja = str(row.get("SEXO", "")).strip().upper()
     if sexo_hoja:
         esperado = {"H": "H", "HOMBRE": "H", "M": "M", "MUJER": "M"}.get(sexo_hoja)
         if esperado and esperado != curp[10]:
             errores.append(f"Sexo: la CURP dice '{curp[10]}' y la hoja dice '{sexo_hoja}'")
- 
+
     # 5) Entidad
     if curp[11:13] not in CODIGOS_ENTIDAD_VALIDOS:
         errores.append(f"Código de entidad '{curp[11:13]}' no existe")
@@ -404,32 +404,21 @@ def auditar_alumno(row):
             errores.append(f"Entidad: la CURP dice '{curp[11:13]}' y la hoja dice '{ent_hoja}' ({cod})")
     else:
         avisos.append("Sin entidad de nacimiento en la hoja: no se pudo contrastar")
- 
+
     # 6) Homoclave: letra para nacidos desde 2000, dígito antes de 2000
     if int(yy) <= ANIO_CORTE_SIGLO and curp[16].isdigit():
         errores.append("La posición 17 debería ser una letra (nacido en 2000 o después)")
- 
+
     return {"valida": not errores, "errores": errores, "avisos": avisos}
- 
+
 def validar_consistencia_alumno(row):
     return auditar_alumno(row)["valida"]
- 
+
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
-    
-    c1 = p_pat[0] if len(p_pat) > 0 else "X"
-    
-    def vocal_interna(palabra):
-        for letra in palabra[1:]:
-            if letra in "AEIOU":
-                return letra
-        return 'X'
-        
-    c2 = vocal_interna(p_pat)
-    c3 = p_mat[0] if len(p_mat) > 0 else "X"
-    c4 = p_nom[0] if len(p_nom) > 0 else "X"
+    # Las 4 primeras letras se generan con las reglas oficiales (apellido materno correcto,
+    # partículas "DE LA", MARIA/JOSE, Ñ, palabras inconvenientes).
+    cuatro_letras, _ = generar_partes_curp(nombre, ap_paterno, ap_materno)
+    c1, c2, c3, c4 = cuatro_letras
     
     try:
         partes_fecha = str(fecha_nac).split(' ')[0].split('-')
@@ -445,12 +434,10 @@ def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, 
         
     g_str = "H" if "H" in str(genero).upper() else "M"
     
-    estados_inverso = {v: k for k, v in CODIGOS_ESTADOS.items()}
-    ent_limpia = normalizar_texto(entidad)
-    ent_str = estados_inverso.get(ent_limpia, "NE")
+    ent_str = _codigo_entidad_curp(entidad) or "NE"
     
     return f"{c1}{c2}{c3}{c4}{f_str}{g_str}{ent_str}"
- 
+
 with st.sidebar:
     modo_app = st.radio(
         "Menú de Operaciones:",
@@ -488,18 +475,18 @@ with st.sidebar:
         st.cache_data.clear()
         st.cache_resource.clear()
         st.rerun()
- 
+
 st.markdown("<h1 class='main-title'>🎓 Verificador Integral CURP</h1>", unsafe_allow_html=True)
 st.markdown(f"<p class='sub-title'>Plataforma institucional de validación y control escolar (Analizando: <b>{hoja_seleccionada}</b>)</p>", unsafe_allow_html=True)
 st.markdown("---")
- 
+
 if modo_app == "🔍 Búsqueda por CURP":
     st.markdown("### 🔍 Validación Directa por CURP")
     st.write("Introduce una CURP para verificar su autenticidad matemática y cruzarla con el expediente del alumno.")
     
     curp_input = st.text_input("", placeholder="Ej. CAHD140521HMCDRYA3", label_visibility="collapsed").strip().upper()
     patron_curp = re.compile(r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$')
- 
+
     if st.button("🚀 Ejecutar Validación por CURP", type="primary", use_container_width=True):
         if not curp_input:
             st.warning("⚠️ Por favor, introduce una CURP en el campo de texto.")
@@ -548,14 +535,14 @@ if modo_app == "🔍 Búsqueda por CURP":
                                 errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db}`.")
                             if not val_nom:
                                 errores.append(f"La inicial del Nombre (`{info_curp['letra_nombre']}`) no concuerda con `{nombre_db}`.")
- 
+
                             # --- CORRECCIÓN: revisión completa de la CURP registrada en la hoja ---
                             if match_exacto.empty:
                                 errores.append(f"⚠️ **La CURP buscada no coincide exactamente con la registrada en la hoja** (`{str(resultado.get('CURP', '')).strip().upper()}`). Es muy probable que la CURP de la hoja tenga un error de captura.")
                             for err_det in auditar_alumno(resultado)["errores"]:
                                 if not err_det.startswith(("Dígito verificador", "Posiciones 1-4")):
                                     errores.append(f"Revisión de la CURP registrada: {err_det}")
- 
+
                             st.write("")
                             tab1, tab2, tab3 = st.tabs(["👤 Perfil del Alumno", "🔍 Desglose CURP", "⚖️ Auditoría y Estado"])
                             
@@ -583,7 +570,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                                             <div class='info-value'>{cct_db if cct_db else 'No asignado'}</div>
                                         </div>
                                     """, unsafe_allow_html=True)
- 
+
                             with tab2:
                                 st.markdown("#### Análisis Cifrado de los Dígitos de la CURP")
                                 c_a, c_b = st.columns(2)
@@ -600,7 +587,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                                     st.success("🔒 **Verificación Oficial:** El dígito verificador matemático es **CORRECTO**.")
                                 else:
                                     st.error("🚨 **Verificación Oficial:** El dígito verificador matemático es **INCORRECTO**.")
- 
+
                             with tab3:
                                 st.markdown("#### Dictamen General del Alumno")
                                 if not errores:
@@ -621,11 +608,11 @@ if modo_app == "🔍 Búsqueda por CURP":
                                         st.warning(f"• {err}")
                         else:
                             st.error("🔴 **Sin Registro Asociado:** La CURP es estructuralmente correcta, pero no se encontró ningún alumno coincidente en la hoja.")
- 
+
 elif modo_app == "📝 Auditoría Demográfica":
     st.markdown("### 📝 Auditoría por Datos Demográficos y Generación Teórica")
     st.write("Introduce los datos personales para calcular y contrastar automáticamente con la CURP registrada en la hoja.")
- 
+
     with st.form("form_auditoria"):
         col_n1, col_n2 = st.columns(2)
         with col_n1:
@@ -646,7 +633,7 @@ elif modo_app == "📝 Auditoría Demográfica":
             
         input_entidad = st.selectbox("Entidad de Nacimiento:", list(CODIGOS_ESTADOS.values()))
         btn_auditar = st.form_submit_button("⚖️ Comprobar Coherencia y Alarma CURP", type="primary")
- 
+
     if btn_auditar:
         if not input_nombre or not input_ap_pat:
             st.warning("⚠️ Por favor, llena al menos el Nombre y el Apellido Paterno.")
@@ -698,13 +685,13 @@ elif modo_app == "📝 Auditoría Demográfica":
                                 st.error(f"🚨 **ALARMA DIRECTIVA:** Discrepancia detectada. Los datos personales ingresados no generan la misma base de CURP guardada en el sistema.")
                     else:
                         st.warning("No se encontró ningún registro con ese Apellido Paterno para contrastar.")
- 
+
 elif modo_app == "⚡ Búsqueda Inteligente":
     st.markdown("### ⚡ Búsqueda Inteligente por Nombre o Apellido")
     st.write("Escribe el nombre o apellido del alumno. El sistema autocompletará los datos y validará su CURP al instante sin necesidad de ingresarlos manualmente.")
- 
+
     termino_busqueda = st.text_input("Buscar alumno en la hoja:", placeholder="Ej. Alejandro Torres o solo Torres")
- 
+
     if termino_busqueda:
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
             st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
@@ -849,15 +836,39 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                             <p>El alumno seleccionado tiene una CURP con discrepancias.</p>
                         </div>
                     """, unsafe_allow_html=True)
- 
+
 elif modo_app == "📊 Auditoría Masiva":
     st.markdown("### 📊 Auditoría Masiva de la Hoja")
     st.write(f"Revisión automática de todas las CURPs en **{hoja_seleccionada}**. Los registros con anomalías aparecerán primero.")
- 
+
     if st.button("🚀 Ejecutar Análisis Masivo", type="primary", use_container_width=True):
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
             st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
         else:
+            # --- Comparativo con la validación anterior (solo para verificar; este bloque se puede borrar) ---
+            def _validacion_anterior(row):
+                curp_a = str(row.get('CURP', '')).strip().upper()
+                if not validar_digito_verificador_curp(curp_a):
+                    return False
+                ap_a = normalizar_texto(str(row.get('Apellido Paterno', ''))).split()[0] if str(row.get('Apellido Paterno', '')).strip() else ""
+                nom_a = normalizar_texto(str(row.get('Nombre(s)', ''))).split()[0] if str(row.get('Nombre(s)', '')).strip() else ""
+                if len(curp_a) == 18 and ap_a and nom_a:
+                    if curp_a[0] != ap_a[0] or curp_a[3] != nom_a[0]:
+                        return False
+                return True
+
+            def _motivo_liberado(row):
+                pat_w = _palabras_curp(row.get('Apellido Paterno', ''))
+                nom_w = _palabras_curp(row.get('Nombre(s)', ''))
+                motivos = []
+                if len(pat_w) > 1 and pat_w[0] in PARTICULAS:
+                    motivos.append("Apellido compuesto (DE / LA / DEL...)")
+                if len(nom_w) > 1 and nom_w[0] in NOMBRES_COMUNES:
+                    motivos.append("Nombre compuesto que inicia con MARIA / JOSE")
+                return " + ".join(motivos) if motivos else "Otro: revisar manualmente"
+            liberados_vs_anterior = []
+            nuevos_vs_anterior = []
+
             with st.spinner("📊 Analizando masivamente la base de datos escolar..."):
                 resultados_masivos = []
                 for index, row in df_alumnos.iterrows():
@@ -867,7 +878,30 @@ elif modo_app == "📊 Auditoría Masiva":
                     grupo_val = row.get('Grupo', '')
                     cct_val = str(row.get('CCT', '')).strip()
                     
-                    es_valida = validar_consistencia_alumno(row) if curp_val else False
+                    auditoria = auditar_alumno(row) if curp_val else {"valida": False, "errores": ["CURP vacía"], "avisos": []}
+                    es_valida = auditoria["valida"]
+                    if auditoria["errores"]:
+                        detalle_val = " | ".join(auditoria["errores"])
+                    elif auditoria["avisos"]:
+                        detalle_val = "Sin errores. Aviso: " + " | ".join(auditoria["avisos"])
+                    else:
+                        detalle_val = "Sin errores"
+
+                    antes_valida = _validacion_anterior(row) if curp_val else False
+                    if antes_valida is False and es_valida:
+                        liberados_vs_anterior.append({
+                            "CCT": cct_val if cct_val else "S/CCT",
+                            "Alumno": nombre_val,
+                            "CURP": curp_val,
+                            "Motivo por el que antes salía error": _motivo_liberado(row)
+                        })
+                    if antes_valida and not es_valida:
+                        nuevos_vs_anterior.append({
+                            "CCT": cct_val if cct_val else "S/CCT",
+                            "Alumno": nombre_val,
+                            "CURP": curp_val if curp_val else "VACÍA",
+                            "Detalle": detalle_val
+                        })
                     estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Incorrecto / Erróneo)"
                     
                     resultados_masivos.append({
@@ -876,6 +910,7 @@ elif modo_app == "📊 Auditoría Masiva":
                         "Grado/Grupo": f"{grado_val}° '{grupo_val}'",
                         "CURP": curp_val if curp_val else "VACÍA",
                         "Estado": estado_str,
+                        "Detalle": detalle_val,
                         "_es_valido_bool": es_valida
                     })
                     
@@ -914,7 +949,7 @@ elif modo_app == "📊 Auditoría Masiva":
                 use_container_width=True
             )
             st.write("")
- 
+
             def colorear_estado(val):
                 color = '#4A1515' if 'Inválido' in str(val) or 'VACÍA' in str(val) else '#113a22'
                 return f'background-color: {color}; color: #ffffff;'
@@ -923,13 +958,24 @@ elif modo_app == "📊 Auditoría Masiva":
             st.dataframe(
                 df_mostrar.style.map(colorear_estado, subset=['Estado']),
                 use_container_width=True,
-                hide_index=True
+                hide_index=True,
+                column_config={"Detalle": st.column_config.TextColumn("Detalle", width="large")}
             )
- 
+
+            # --- Comparativo con la validación anterior (solo para verificar; se puede borrar) ---
+            with st.expander("🔎 Comparativo con la validación anterior (para verificar los resultados)"):
+                st.markdown(f"**Antes salían como error y ahora son válidos:** {len(liberados_vs_anterior)}")
+                st.caption("La validación anterior solo miraba la primera palabra del apellido y del nombre, por eso marcaba mal los apellidos compuestos (DE LA ROSA) y los nombres que inician con MARIA o JOSE. Revisa especialmente los que digan 'Otro'.")
+                if liberados_vs_anterior:
+                    st.dataframe(pd.DataFrame(liberados_vs_anterior), use_container_width=True, hide_index=True)
+                st.markdown(f"**Antes salían válidos y ahora tienen error (errores nuevos detectados):** {len(nuevos_vs_anterior)}")
+                if nuevos_vs_anterior:
+                    st.dataframe(pd.DataFrame(nuevos_vs_anterior), use_container_width=True, hide_index=True)
+
 elif modo_app == "🛡️ Antifraude y Duplicados":
     st.markdown("### 🛡️ Auditoría Antifraude: Detección de Duplicados y Coincidencias")
     st.write(f"Escaneo avanzado en **{hoja_seleccionada}** para localizar CURPs repetidas de forma exacta y posibles alumnos duplicados.")
- 
+
     if st.button("🔍 Iniciar Escaneo Antifraude", type="primary", use_container_width=True):
         if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
             st.error("La hoja seleccionada está vacía o no contiene la columna 'CURP'.")
@@ -1010,14 +1056,14 @@ elif modo_app == "🛡️ Antifraude y Duplicados":
                             <p>No se encontraron registros con nombres inusualmente parecidos o duplicados.</p>
                         </div>
                     """, unsafe_allow_html=True)
- 
+
 # ==============================================================================
 # MODO F: DASHBOARD DIRECTIVO
 # ==============================================================================
 else:
     st.markdown("### 📈 Dashboard Directivo y Analítica Escolar")
     st.write(f"Panel interactivo de analítica para: **{hoja_seleccionada}**.")
- 
+
     if df_alumnos.empty or 'CURP' not in df_alumnos.columns:
         st.error("La hoja seleccionada está vacía o no contiene la información necesaria para generar el dashboard.")
     else:
@@ -1029,7 +1075,7 @@ else:
                 validas_count += 1
         invalidas_count = total_matriz - validas_count
         porcentaje_salud = round((validas_count / total_matriz) * 100, 1) if total_matriz > 0 else 0
- 
+
         # Tarjetas KPI Superiores
         st.markdown(f"""
             <div style="display: flex; gap: 15px; margin-bottom: 25px;">
@@ -1047,9 +1093,9 @@ else:
                 </div>
             </div>
         """, unsafe_allow_html=True)
- 
+
         col_d1, col_d2 = st.columns(2)
- 
+
         with col_d1:
             st.markdown("#### 📊 Distribución por Grado y Grupo")
             if 'Grado' in df_alumnos.columns and 'Grupo' in df_alumnos.columns:
@@ -1065,7 +1111,7 @@ else:
                 st.altair_chart(chart_grupos, use_container_width=True)
             else:
                 st.info("No se encontraron las columnas 'Grado' o 'Grupo' en la hoja de cálculo.")
- 
+
         with col_d2:
             st.markdown("#### 🟢 Estado de Salud de las CURPs")
             df_salud = pd.DataFrame({
@@ -1080,7 +1126,7 @@ else:
                 tooltip=['Estado', 'Cantidad']
             ).properties(height=300)
             st.altair_chart(chart_salud, use_container_width=True)
- 
+
         st.markdown("---")
         st.markdown("#### 🗺️ Resumen de Procedencia por Entidad Federativa")
         if 'CURP' in df_alumnos.columns:
@@ -1117,4 +1163,3 @@ else:
                 st.warning("⚠️ Selecciona al menos una entidad en el menú desplegable para mostrar la gráfica.")
         else:
             st.info("No hay datos suficientes para calcular entidades.")
- 
