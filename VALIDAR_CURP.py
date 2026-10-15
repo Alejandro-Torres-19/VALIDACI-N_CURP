@@ -39,7 +39,7 @@ with st.sidebar:
     nombre_hoja_activa = HOJAS_DISPONIBLES[hoja_seleccionada]
     st.markdown("---")
 
-# Estilos CSS dinámicos y ampliados según el tema seleccionado
+# Estilos CSS dinámicos
 if "Oscuro" in modo_visual:
     bg_card = "#1E293B"
     border_card = "#334155"
@@ -67,16 +67,13 @@ else:
 
 st.markdown(f"""
     <style>
-        /* --- ANCHO Y TAMAÑO AMPLIADO DE BARRA LATERAL --- */
         [data-testid="stSidebar"] {{
             min-width: 330px !important;
             max-width: 370px !important;
             background-color: {sidebar_bg} !important;
         }}
-
         .main-title {{ font-size: 2.2rem; font-weight: 700; color: #1E3A8A; text-align: left; margin-bottom: 0px; }}
         .sub-title {{ font-size: 1.1rem; color: #4B5563; text-align: left; margin-bottom: 25px; }}
-        
         .info-card {{
             background-color: {bg_card};
             border: 1px solid {border_card};
@@ -85,46 +82,11 @@ st.markdown(f"""
             margin-bottom: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }}
-        .info-label {{
-            font-size: 0.9rem;
-            color: {text_label};
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-            font-weight: 600;
-        }}
-        .info-value {{
-            font-size: 1.3rem;
-            color: {text_main};
-            font-weight: 700;
-            word-break: break-word;
-            line-height: 1.3;
-        }}
+        .info-label {{ font-size: 0.9rem; color: {text_label}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600; }}
+        .info-value {{ font-size: 1.3rem; color: {text_main}; font-weight: 700; word-break: break-word; line-height: 1.3; }}
         .success-box {{ background-color: {success_bg}; padding: 15px; border-radius: 10px; border: 1px solid {success_border}; color: {success_color}; }}
         .error-box {{ background-color: {error_bg}; padding: 15px; border-radius: 10px; border: 1px solid {error_border}; color: {error_color}; }}
-        
-        .sidebar-status {{
-            background-color: {bg_card};
-            padding: 14px;
-            border-radius: 8px;
-            border: 1px solid {border_card};
-            margin-bottom: 20px;
-        }}
-
-        div[data-testid="stSidebar"] div.row-widget.stRadio > label {{
-            font-size: 1.2rem !important;
-            font-weight: 600 !important;
-            padding: 10px 0px !important;
-        }}
-        div[data-testid="stSidebar"] .stRadio label p {{
-            font-size: 1.1rem !important;
-        }}
-        div[data-testid="stSidebar"] button {{
-            font-size: 1.15rem !important;
-            font-weight: 600 !important;
-            padding: 0.8rem 1rem !important;
-            border-radius: 8px !important;
-        }}
+        .sidebar-status {{ background-color: {bg_card}; padding: 14px; border-radius: 8px; border: 1px solid {border_card}; margin-bottom: 20px; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -140,7 +102,6 @@ CODIGOS_ESTADOS = {
     "NE": "NACIDO EN EL EXTRANJERO"
 }
 
-# Función para cargar datos conectándose al archivo global "VALIDADOR CURP" y leyendo la hoja específica
 @st.cache_data(ttl=600)
 def cargar_datos_hoja(nombre_hoja):
     try:
@@ -224,26 +185,80 @@ def normalizar_texto(texto):
     texto = ''.join([c for c in texto if not unicodedata.combining(c)])
     return texto.upper().strip()
 
+PREFIJOS_IGNORAR = {"DE", "DEL", "LA", "LAS", "LOS", "MAC", "MC", "VAN", "VON", "SAN", "SANTA"}
+NOMBRES_COMUNES_IGNORAR = {"MARIA", "MA", "MA.", "JOSE", "J", "J."}
+
+def limpiar_palabras(texto):
+    palabras = normalizar_texto(texto).split()
+    return [p for p in palabras if p not in PREFIJOS_IGNORAR]
+
+def primera_consonante_interna(palabra):
+    if not palabra or len(palabra) < 2:
+        return 'X'
+    for letra in palabra[1:]:
+        if letra.isalpha() and letra not in "AEIOU":
+            return letra
+    return 'X'
+
 def validar_consistencia_alumno(row):
-    """Valida tanto el dígito verificador matemático como la coherencia de iniciales clave con el alumno"""
     curp = str(row.get('CURP', '')).strip().upper()
     if not validar_digito_verificador_curp(curp):
         return False
         
-    ap_pat = normalizar_texto(str(row.get('Apellido Paterno', ''))).split()[0] if str(row.get('Apellido Paterno', '')).strip() else ""
-    nombre = normalizar_texto(str(row.get('Nombre(s)', ''))).split()[0] if str(row.get('Nombre(s)', '')).strip() else ""
+    paterno_raw = str(row.get('Apellido Paterno', ''))
+    materno_raw = str(row.get('Apellido Materno', ''))
+    nombres_raw = str(row.get('Nombre(s)', ''))
     
-    if len(curp) == 18 and ap_pat and nombre:
-        # Verificamos que la primera letra del apellido paterno y del nombre coincidan estrictamente con la CURP
-        if curp[0] != ap_pat[0] or curp[3] != nombre[0]:
-            return False
-            
+    paterno_limpio = limpiar_palabras(paterno_raw)
+    materno_limpio = limpiar_palabras(materno_raw)
+    nombres_limpios = limpiar_palabras(nombres_raw)
+    
+    # 1. Validar iniciales principales (Posiciones 0, 2, 3)
+    p_pat = paterno_limpio[0] if paterno_limpio else ""
+    p_mat = materno_limpio[0] if materno_limpio else ""
+    
+    # Elección del primer nombre relevante
+    nom_rel = ""
+    if len(nombres_limpios) > 1 and nombres_limpios[0] in NOMBRES_COMUNES_IGNORAR:
+        nom_rel = nombres_limpios[1]
+    elif nombres_limpios:
+        nom_rel = nombres_limpios[0]
+        
+    if p_pat and curp[0] != p_pat[0]:
+        return False
+    if p_mat and curp[2] != p_mat[0]:
+        return False
+    if nom_rel and curp[3] != nom_rel[0]:
+        return False
+
+    # 2. Validar consonantes internas clave (Posiciones 13, 14, 15)
+    c_pat = primera_consonante_interna(p_pat) if p_pat else 'X'
+    c_mat = primera_consonante_interna(p_mat) if p_mat else 'X'
+    c_nom = primera_consonante_interna(nom_rel) if nom_rel else 'X'
+    
+    cons_esperadas = f"{c_pat}{c_mat}{c_nom}"
+    cons_curp = curp[13:16]
+    
+    if cons_curp != cons_esperadas:
+        return False
+        
     return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
+    p_pat_list = limpiar_palabras(ap_paterno)
+    p_mat_list = limpiar_palabras(ap_materno)
+    p_nom_list = limpiar_palabras(nombre)
+    
+    p_pat = p_pat_list[0] if p_pat_list else "X"
+    p_mat = p_mat_list[0] if p_mat_list else "X"
+    
+    p_nom = ""
+    if len(p_nom_list) > 1 and p_nom_list[0] in NOMBRES_COMUNES_IGNORAR:
+        p_nom = p_nom_list[1]
+    elif p_nom_list:
+        p_nom = p_nom_list[0]
+    else:
+        p_nom = "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
     
@@ -369,7 +384,7 @@ if modo_app == "🔍 Búsqueda por CURP":
                             if not es_matematicamente_valida:
                                 errores.append("⚠️ **Alerta:** El dígito verificador matemático de la CURP es incorrecto.")
                             if not val_ap_p:
-                                errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda với `{ap_p_db}`.")
+                                errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
                             if not val_ap_m and ap_m_db:
                                 errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db}`.")
                             if not val_nom:
@@ -587,14 +602,14 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador y las iniciales clave de esta CURP concuerdan con el expediente.</p>
+                            <p>El dígito verificador y las consonantes internas de esta CURP concuerdan con el expediente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta</h3>
-                            <p>La CURP presenta discrepancias en sus iniciales o dígito verificador respecto al alumno.</p>
+                            <p>La CURP presenta discrepancias en sus consonantes internas o iniciales respecto al nombre del alumno.</p>
                         </div>
                     """, unsafe_allow_html=True)
             else:
@@ -665,7 +680,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta Directiva</h3>
-                            <p>El alumno seleccionado tiene una CURP con inconsistencias en sus datos clave.</p>
+                            <p>El alumno seleccionado tiene una CURP con inconsistencias en sus consonantes o iniciales.</p>
                         </div>
                     """, unsafe_allow_html=True)
 
