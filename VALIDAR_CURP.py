@@ -418,8 +418,8 @@ def _resumen_error(texto):
     """Versión corta del error para la columna 'Detalle' (solo la primera parte)."""
     reglas = [
         ("Dígito verificador", "Dígito verificador incorrecto"),
-        ("Error en las iniciales", "Error en las iniciales"),
-        ("Error en las consonantes", "Error en las consonantes"),
+        ("Error en las iniciales", "Posible nombre mal capturado"),
+        ("Error en las consonantes", "Posible nombre mal capturado"),
         ("Error en el número identificador", "Error en el número identificador"),
         ("Fecha:", "Error en la fecha"),
         ("La fecha dentro de la CURP", "Fecha inexistente en la CURP"),
@@ -904,7 +904,7 @@ elif modo_app == "📊 Auditoría Masiva":
                 resultados_masivos = []
                 for index, row in df_alumnos.iterrows():
                     curp_val = str(row.get('CURP', '')).strip().upper()
-                    nombre_val = f"{row.get('Nombre(s)', '')} {row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')}".strip()
+                    nombre_val = " ".join(f"{row.get('Apellido Paterno', '')} {row.get('Apellido Materno', '')} {row.get('Nombre(s)', '')}".split())
                     grado_val = row.get('Grado', '')
                     grupo_val = row.get('Grupo', '')
                     cct_val = str(row.get('CCT', '')).strip()
@@ -912,7 +912,7 @@ elif modo_app == "📊 Auditoría Masiva":
                     auditoria = auditar_alumno(row) if curp_val else {"valida": False, "errores": ["CURP vacía"], "avisos": []}
                     es_valida = auditoria["valida"]
                     if auditoria["errores"]:
-                        detalle_val = " | ".join(_resumen_error(e) for e in auditoria["errores"])
+                        detalle_val = " | ".join(dict.fromkeys(_resumen_error(e) for e in auditoria["errores"]))
                     elif auditoria["avisos"]:
                         detalle_val = "Sin errores (aviso: " + ", ".join(_resumen_aviso(a) for a in auditoria["avisos"]) + ")"
                     else:
