@@ -553,17 +553,19 @@ if modo_app == "🔍 Búsqueda por CURP":
                             
                             nombre_completo = f"{nombre_db} {ap_p_db} {ap_m_db}"
                             
-                            val_ap_p = ap_p_db.startswith(info_curp['letra_primer_apellido']) if ap_p_db else False
-                            val_ap_m = ap_m_db.startswith(info_curp['letra_segundo_apellido']) if ap_m_db else False
-                            val_nom = nombre_db.startswith(info_curp['letra_nombre']) if nombre_db else False
+                            # Iniciales esperadas con las reglas oficiales (apellidos compuestos, MARIA/JOSE, etc.)
+                            cuatro_esperadas, _ = generar_partes_curp(nombre_db, ap_p_db, ap_m_db)
+                            val_ap_p = info_curp['letra_primer_apellido'] == cuatro_esperadas[0]
+                            val_ap_m = info_curp['letra_segundo_apellido'] == cuatro_esperadas[2]
+                            val_nom = info_curp['letra_nombre'] == cuatro_esperadas[3]
                             
                             errores = []
                             if not es_matematicamente_valida:
                                 errores.append("⚠️ **Alerta:** El dígito verificador matemático de la CURP es incorrecto.")
                             if not val_ap_p:
                                 errores.append(f"La inicial del Apellido Paterno (`{info_curp['letra_primer_apellido']}`) no concuerda con `{ap_p_db}`.")
-                            if not val_ap_m and ap_m_db:
-                                errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db}`.")
+                            if not val_ap_m:
+                                errores.append(f"La inicial del Apellido Materno (`{info_curp['letra_segundo_apellido']}`) no concuerda con `{ap_m_db if ap_m_db else '(vacío)'}`.")
                             if not val_nom:
                                 errores.append(f"La inicial del Nombre (`{info_curp['letra_nombre']}`) no concuerda con `{nombre_db}`.")
 
