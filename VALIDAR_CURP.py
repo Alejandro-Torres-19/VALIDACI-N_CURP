@@ -187,46 +187,72 @@ def normalizar_texto(texto):
 
 PREFIJOS_COMPUESTOS = {"DE", "DEL", "LA", "LAS", "LOS", "MC", "MAC", "VON", "VAN", "SAN", "SANTA"}
 
-def obtener_palabra_relevante(texto):
+def obtener_palabras_limpias(texto):
     palabras = normalizar_texto(texto).split()
-    # Filtrar partículas comunes para encontrar el apellido/nombre principal
-    palabras_filtradas = [p for p in palabras if p not in PREFIJOS_COMPUESTOS]
-    if palabras_filtradas:
-        return palabras_filtradas[0]
-    elif palabras:
-        return palabras[0]
-    return "X"
+    return [p for p in palabras if p not in PREFIJOS_COMPUESTOS]
+
+def primera_consonante_interna(palabra):
+    if not palabra or len(palabra) < 2:
+        return 'X'
+    for letra in palabra[1:]:
+        if letra.isalpha() and letra not in "AEIOU":
+            return letra
+    return 'X'
 
 def validar_consistencia_alumno(row):
     curp = str(row.get('CURP', '')).strip().upper()
     
-    # 1. Validación matemática oficial obligatoria
+    # 1. Validación matemática oficial
     if not validar_digito_verificador_curp(curp):
         return False
         
-    paterno_raw = str(row.get('Apellido Paterno', ''))
-    materno_raw = str(row.get('Apellido Materno', ''))
-    nombres_raw = str(row.get('Nombre(s)', ''))
+    paterno_words = obtener_palabras_limpias(str(row.get('Apellido Paterno', '')))
+    materno_words = obtener_palabras_limpias(str(row.get('Apellido Materno', '')))
+    nombres_words = obtener_palabras_limpias(str(row.get('Nombre(s)', '')))
     
-    p_pat = obtener_palabra_relevante(paterno_raw)
-    p_mat = obtener_palabra_relevante(materno_raw)
-    p_nom = obtener_palabra_relevante(nombres_raw)
+    # 2. Validar Iniciales Principales (Permitiendo María/José como nombres válidos)
+    p_pat = paterno_words[0] if paterno_words else ""
+    p_mat = materno_words[0] if materno_words else ""
     
-    # 2. Validación estricta de las iniciales principales (Posiciones 0, 2 y 3)
+    # Iniciales válidas de nombre
+    iniciales_nombre_validas = [w[0] for w in nombres_words if len(w) > 0]
+    
     if p_pat and curp[0] != p_pat[0]:
         return False
     if p_mat and curp[2] != p_mat[0]:
         return False
-    if p_nom and curp[3] != p_nom[0]:
+    if iniciales_nombre_validas and curp[3] not in iniciales_nombre_validas:
+        return False
+
+    # 3. Validar Consonantes Internas (Maneja el error específico de Franco Alexander)
+    c_pat = primera_consonante_interna(p_pat) if p_pat else 'X'
+    c_mat = primera_consonante_interna(p_mat) if p_mat else 'X'
+    
+    # Evaluar consonantes de los nombres posibles
+    c_nom_posibles = [primera_consonante_interna(w) for w in nombres_words if len(w) > 0]
+    if not c_nom_posibles:
+        c_nom_posibles = ['X']
+        
+    cons_curp = curp[13:16] # Posiciones 13, 14, 15
+    
+    # Validar que la primera y segunda consonante coincidan
+    if cons_curp[0] != c_pat or cons_curp[1] != c_mat:
         return False
         
-    # Si pasa la matemática y las iniciales clave, se considera válido (respetando excepciones oficiales RENAPO)
+    # La tercera consonante debe pertenecer a alguno de los nombres del alumno
+    if cons_curp[2] not in c_nom_posibles:
+        return False
+        
     return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    p_pat = obtener_palabra_relevante(ap_paterno)
-    p_mat = obtener_palabra_relevante(ap_materno)
-    p_nom = obtener_palabra_relevante(nombre)
+    p_pat_list = obtener_palabras_limpias(ap_paterno)
+    p_mat_list = obtener_palabras_limpias(ap_materno)
+    p_nom_list = obtener_palabras_limpias(nombre)
+    
+    p_pat = p_pat_list[0] if p_pat_list else "X"
+    p_mat = p_mat_list[0] if p_mat_list else "X"
+    p_nom = p_nom_list[0] if p_nom_list else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
     
@@ -570,7 +596,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador y las iniciales clave de esta CURP concuerdan con el expediente.</p>
+                            <p>El dígito verificador y las consonantes de esta CURP concuerdan con el expediente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
