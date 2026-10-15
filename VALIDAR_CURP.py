@@ -156,9 +156,7 @@ def cargar_datos_hoja(nombre_hoja):
         creds = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
         client = gspread.authorize(creds)
         
-        # Archivo global en Google Drive
         spreadsheet = client.open("VALIDADOR CURP") 
-        # Selecciona la hoja específica dentro del documento
         ws = spreadsheet.worksheet(nombre_hoja)
         data = ws.get_all_values()
         
@@ -231,6 +229,28 @@ def obtener_primera_vocal_interna(palabra):
         if letra in "AEIOU":
             return letra
     return 'X'
+
+def validar_consistencia_alumno(row):
+    """Valida tanto el dígito verificador matemático como la coherencia de iniciales con el nombre/apellidos"""
+    curp = str(row.get('CURP', '')).strip().upper()
+    if not validar_digito_verificador_curp(curp):
+        return False
+        
+    # Extracción de datos del registro
+    ap_pat = normalizar_texto(str(row.get('Apellido Paterno', ''))).split()[0] if str(row.get('Apellido Paterno', '')).strip() else ""
+    ap_mat = normalizar_texto(str(row.get('Apellido Materno', ''))).split()[0] if str(row.get('Apellido Materno', '')).strip() else ""
+    nombre = normalizar_texto(str(row.get('Nombre(s)', ''))).split()[0] if str(row.get('Nombre(s)', '')).strip() else ""
+    
+    if len(curp) == 18 and ap_pat and nombre:
+        c1_esperada = ap_pat[0]
+        c3_esperada = ap_mat[0] if ap_mat else "X"
+        c4_esperada = nombre[0]
+        
+        # Validación estricta de iniciales clave en la CURP
+        if curp[0] != c1_esperada or curp[3] != c4_esperada:
+            return False
+            
+    return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
@@ -536,7 +556,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                 nombre_completo = f"{nom_g} {pat_g} {mat_g}"
                 
                 st.success(f"🎯 ¡Alumno encontrado de forma única!")
-                es_valida_mat = validar_digito_verificador_curp(curp_g)
+                es_valida_mat = validar_consistencia_alumno(alumno)
                 
                 st.markdown(f"""
                     <div class='info-card'>
@@ -572,14 +592,14 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador matemático de esta CURP es oficial y correcto.</p>
+                            <p>El dígito verificador y las iniciales de esta CURP concuerdan con el expediente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta</h3>
-                            <p>El dígito verificador de esta CURP es incorrecto (requiere revisión oficial).</p>
+                            <p>La CURP presenta discrepancias en sus iniciales o dígito verificador respecto al alumno.</p>
                         </div>
                     """, unsafe_allow_html=True)
             else:
@@ -606,7 +626,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                 grupo_g = str(alumno.get('Grupo', '')).strip()
                 cct_g = str(alumno.get('CCT', '')).strip()
                 nombre_completo = f"{nom_g} {pat_g} {mat_g}"
-                es_valida_mat = validar_digito_verificador_curp(curp_g)
+                es_valida_mat = validar_consistencia_alumno(alumno)
                 
                 st.write("")
                 st.markdown(f"""
@@ -643,14 +663,14 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El alumno seleccionado cuenta con una CURP matemáticamente correcta.</p>
+                            <p>El alumno seleccionado cuenta con una CURP consistente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta Directiva</h3>
-                            <p>El alumno seleccionado tiene una CURP con errores en el dígito verificador.</p>
+                            <p>El alumno seleccionado tiene una CURP con inconsistencias en sus datos clave.</p>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -671,7 +691,7 @@ elif modo_app == "📊 Auditoría Masiva":
                     grupo_val = row.get('Grupo', '')
                     cct_val = str(row.get('CCT', '')).strip()
                     
-                    es_valida = validar_digito_verificador_curp(curp_val) if curp_val else False
+                    es_valida = validar_consistencia_alumno(row) if curp_val else False
                     estado_str = "🟢 Válido (Correcto)" if es_valida else "🔴 Inválido (Incorrecto / Erróneo)"
                     
                     resultados_masivos.append({
@@ -829,7 +849,7 @@ else:
         
         validas_count = 0
         for _, r in df_alumnos.iterrows():
-            if validar_digito_verificador_curp(str(r.get('CURP', ''))):
+            if validar_consistencia_alumno(r):
                 validas_count += 1
         invalidas_count = total_matriz - validas_count
         porcentaje_salud = round((validas_count / total_matriz) * 100, 1) if total_matriz > 0 else 0
