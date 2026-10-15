@@ -185,54 +185,48 @@ def normalizar_texto(texto):
     texto = ''.join([c for c in texto if not unicodedata.combining(c)])
     return texto.upper().strip()
 
-def primera_consonante_interna(palabra):
-    if not palabra or len(palabra) < 2:
-        return 'X'
-    for letra in palabra[1:]:
-        if letra.isalpha() and letra not in "AEIOU":
-            return letra
-    return 'X'
+PREFIJOS_COMPUESTOS = {"DE", "DEL", "LA", "LAS", "LOS", "MC", "MAC", "VON", "VAN", "SAN", "SANTA"}
+
+def obtener_palabra_relevante(texto):
+    palabras = normalizar_texto(texto).split()
+    # Filtrar partículas comunes para encontrar el apellido/nombre principal
+    palabras_filtradas = [p for p in palabras if p not in PREFIJOS_COMPUESTOS]
+    if palabras_filtradas:
+        return palabras_filtradas[0]
+    elif palabras:
+        return palabras[0]
+    return "X"
 
 def validar_consistencia_alumno(row):
     curp = str(row.get('CURP', '')).strip().upper()
     
-    # 1. Validación matemática obligatoria
+    # 1. Validación matemática oficial obligatoria
     if not validar_digito_verificador_curp(curp):
         return False
         
-    paterno_raw = normalizar_texto(str(row.get('Apellido Paterno', '')))
-    materno_raw = normalizar_texto(str(row.get('Apellido Materno', '')))
-    nombres_raw = normalizar_texto(str(row.get('Nombre(s)', '')))
+    paterno_raw = str(row.get('Apellido Paterno', ''))
+    materno_raw = str(row.get('Apellido Materno', ''))
+    nombres_raw = str(row.get('Nombre(s)', ''))
     
-    p_pat = paterno_raw.split()[0] if paterno_raw else ""
-    p_mat = materno_raw.split()[0] if materno_raw else ""
-    p_nom = nombres_raw.split()[0] if nombres_raw else ""
+    p_pat = obtener_palabra_relevante(paterno_raw)
+    p_mat = obtener_palabra_relevante(materno_raw)
+    p_nom = obtener_palabra_relevante(nombres_raw)
     
-    # 2. Validación de Iniciales Principales
+    # 2. Validación estricta de las iniciales principales (Posiciones 0, 2 y 3)
     if p_pat and curp[0] != p_pat[0]:
         return False
     if p_mat and curp[2] != p_mat[0]:
         return False
     if p_nom and curp[3] != p_nom[0]:
         return False
-
-    # 3. Validación de Consonantes Internas Directas (Sin omitir palabras)
-    c_pat = primera_consonante_interna(p_pat) if p_pat else 'X'
-    c_mat = primera_consonante_interna(p_mat) if p_mat else 'X'
-    c_nom = primera_consonante_interna(p_nom) if p_nom else 'X'
-    
-    cons_esperadas = f"{c_pat}{c_mat}{c_nom}"
-    cons_curp = curp[13:16]
-    
-    if cons_curp != cons_esperadas:
-        return False
         
+    # Si pasa la matemática y las iniciales clave, se considera válido (respetando excepciones oficiales RENAPO)
     return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
-    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
+    p_pat = obtener_palabra_relevante(ap_paterno)
+    p_mat = obtener_palabra_relevante(ap_materno)
+    p_nom = obtener_palabra_relevante(nombre)
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
     
@@ -576,14 +570,14 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador y las consonantes internas de esta CURP concuerdan con el expediente.</p>
+                            <p>El dígito verificador y las iniciales clave de esta CURP concuerdan con el expediente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta</h3>
-                            <p>La CURP presenta discrepancias en sus consonantes internas o iniciales respecto al nombre del alumno.</p>
+                            <p>La CURP presenta discrepancias respecto al expediente del alumno.</p>
                         </div>
                     """, unsafe_allow_html=True)
             else:
@@ -654,7 +648,7 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta Directiva</h3>
-                            <p>El alumno seleccionado tiene una CURP con inconsistencias en sus consonantes o iniciales.</p>
+                            <p>El alumno seleccionado tiene una CURP con discrepancias.</p>
                         </div>
                     """, unsafe_allow_html=True)
 
