@@ -365,9 +365,9 @@ def auditar_alumno(row):
         row.get("Nombre(s)", ""), row.get("Apellido Paterno", ""), row.get("Apellido Materno", "")
     )
     if curp[:4] != cuatro:
-        errores.append(f"Error en las iniciales: la CURP trae '{curp[:4]}' y por los nombres debería ser '{cuatro}'")
+        errores.append(f"Error en las iniciales: la CURP trae '{curp[:4]}' y por los nombres debería ser '{cuatro}'. ⚠️ Puede ser que el nombre o apellido esté mal escrito en la hoja.")
     if curp[13:16] != consonantes:
-        errores.append(f"Error en las consonantes: la CURP trae '{curp[13:16]}' y por los nombres debería ser '{consonantes}'")
+        errores.append(f"Error en las consonantes: la CURP trae '{curp[13:16]}' y por los nombres debería ser '{consonantes}'. ⚠️ Puede ser que el nombre o apellido esté mal escrito en la hoja.")
 
     # 3) Fecha de nacimiento
     yy, mm, dd = curp[4:6], curp[6:8], curp[8:10]
@@ -413,6 +413,37 @@ def auditar_alumno(row):
 
 def validar_consistencia_alumno(row):
     return auditar_alumno(row)["valida"]
+
+def _resumen_error(texto):
+    """Versión corta del error para la columna 'Detalle' (solo la primera parte)."""
+    reglas = [
+        ("Dígito verificador", "Dígito verificador incorrecto"),
+        ("Error en las iniciales", "Error en las iniciales"),
+        ("Error en las consonantes", "Error en las consonantes"),
+        ("Error en el número identificador", "Error en el número identificador"),
+        ("Fecha:", "Error en la fecha"),
+        ("La fecha dentro de la CURP", "Fecha inexistente en la CURP"),
+        ("Entidad:", "Error en la entidad"),
+        ("Código de entidad", "Código de entidad inexistente"),
+        ("Sexo:", "Error en el sexo"),
+        ("Estructura inválida", "Estructura inválida"),
+        ("CURP vacía", "CURP vacía"),
+    ]
+    for inicio, corto in reglas:
+        if texto.startswith(inicio):
+            return corto
+    return texto
+
+def _resumen_aviso(texto):
+    if "No se pudo leer la fecha" in texto:
+        return "fecha ilegible en la hoja"
+    if "Sin fecha" in texto:
+        return "sin fecha en la hoja"
+    if "Entidad no reconocida" in texto:
+        return "entidad no reconocida en la hoja"
+    if "Sin entidad" in texto:
+        return "sin entidad en la hoja"
+    return texto
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     # Las 4 primeras letras se generan con las reglas oficiales (apellido materno correcto,
@@ -881,9 +912,9 @@ elif modo_app == "📊 Auditoría Masiva":
                     auditoria = auditar_alumno(row) if curp_val else {"valida": False, "errores": ["CURP vacía"], "avisos": []}
                     es_valida = auditoria["valida"]
                     if auditoria["errores"]:
-                        detalle_val = " | ".join(auditoria["errores"])
+                        detalle_val = " | ".join(_resumen_error(e) for e in auditoria["errores"])
                     elif auditoria["avisos"]:
-                        detalle_val = "Sin errores. Aviso: " + " | ".join(auditoria["avisos"])
+                        detalle_val = "Sin errores (aviso: " + ", ".join(_resumen_aviso(a) for a in auditoria["avisos"]) + ")"
                     else:
                         detalle_val = "Sin errores"
 
