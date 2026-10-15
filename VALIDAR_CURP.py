@@ -224,41 +224,57 @@ def normalizar_texto(texto):
     texto = ''.join([c for c in texto if not unicodedata.combining(c)])
     return texto.upper().strip()
 
-def obtener_primera_vocal_interna(palabra):
+def obtener_primera_consonante_interna(palabra):
     for letra in palabra[1:]:
-        if letra in "AEIOU":
+        if letra not in "AEIOU":
             return letra
     return 'X'
 
+def calcular_consonantes_internas(ap_paterno, ap_materno, nombre):
+    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
+    
+    c5 = obtener_primera_consonante_interna(p_pat)
+    c6 = obtener_primera_consonante_interna(p_mat)
+    c7 = obtener_primera_consonante_interna(p_nom)
+    
+    return f"{c5}{c6}{c7}"
+
 def validar_consistencia_alumno(row):
-    """Valida tanto el dígito verificador matemático como la coherencia de iniciales con el nombre/apellidos"""
+    """Valida el dígito verificador y la congruencia estricta de las consonantes internas del apellido/nombre en la CURP"""
     curp = str(row.get('CURP', '')).strip().upper()
     if not validar_digito_verificador_curp(curp):
         return False
         
-    # Extracción de datos del registro
-    ap_pat = normalizar_texto(str(row.get('Apellido Paterno', ''))).split()[0] if str(row.get('Apellido Paterno', '')).strip() else ""
-    ap_mat = normalizar_texto(str(row.get('Apellido Materno', ''))).split()[0] if str(row.get('Apellido Materno', '')).strip() else ""
-    nombre = normalizar_texto(str(row.get('Nombre(s)', ''))).split()[0] if str(row.get('Nombre(s)', '')).strip() else ""
+    ap_pat = str(row.get('Apellido Paterno', '')).strip()
+    ap_mat = str(row.get('Apellido Materno', '')).strip()
+    nombre = str(row.get('Nombre(s)', '')).strip()
     
     if len(curp) == 18 and ap_pat and nombre:
-        c1_esperada = ap_pat[0]
-        c3_esperada = ap_mat[0] if ap_mat else "X"
-        c4_esperada = nombre[0]
+        consonantes_esperadas = calcular_consonantes_internas(ap_pat, ap_mat, nombre)
+        consonantes_curp = curp[13:16] # Las posiciones 13, 14 y 15 de la CURP corresponden a las consonantes internas
         
-        # Validación estricta de iniciales clave en la CURP
-        if curp[0] != c1_esperada or curp[3] != c4_esperada:
+        # Si las consonantes internas de los nombres no coinciden con la CURP registrada, se detecta la alteración
+        if consonantes_curp != consonantes_esperadas:
             return False
             
     return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
     p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
-    p_mat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
     p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
-    c2 = obtener_primera_vocal_interna(p_pat)
+    
+    def vocal_interna(palabra):
+        for letra in palabra[1:]:
+            if letra in "AEIOU":
+                return letra
+        return 'X'
+        
+    c2 = vocal_interna(p_pat)
     c3 = p_mat[0] if len(p_mat) > 0 else "X"
     c4 = p_nom[0] if len(p_nom) > 0 else "X"
     
@@ -592,14 +608,14 @@ elif modo_app == "⚡ Búsqueda Inteligente":
                     st.markdown("""
                         <div class='success-box'>
                             <h3>🟢 Validación Exitosa</h3>
-                            <p>El dígito verificador y las iniciales de esta CURP concuerdan con el expediente.</p>
+                            <p>El dígito verificador y las consonantes internas de esta CURP concuerdan con el expediente.</p>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div class='error-box'>
                             <h3>🔴 Alerta</h3>
-                            <p>La CURP presenta discrepancias en sus iniciales o dígito verificador respecto al alumno.</p>
+                            <p>La CURP presenta discrepancias en sus consonantes internas o dígito verificador respecto al alumno.</p>
                         </div>
                     """, unsafe_allow_html=True)
             else:
@@ -907,7 +923,7 @@ else:
 
         st.markdown("---")
         st.markdown("#### 🗺️ Resumen de Procedencia por Entidad Federativa")
-        if 'CURP' in df_alumnos.columns:
+        if 'CURP`' in df_alumnos.columns or 'CURP' in df_alumnos.columns:
             entidades_encontradas = []
             for _, r in df_alumnos.iterrows():
                 c = str(r.get('CURP', '')).strip().upper()
