@@ -185,13 +185,6 @@ def normalizar_texto(texto):
     texto = ''.join([c for c in texto if not unicodedata.combining(c)])
     return texto.upper().strip()
 
-PREFIJOS_IGNORAR = {"DE", "DEL", "LA", "LAS", "LOS", "MAC", "MC", "VAN", "VON", "SAN", "SANTA"}
-NOMBRES_COMUNES_IGNORAR = {"MARIA", "MA", "MA.", "JOSE", "J", "J."}
-
-def limpiar_palabras(texto):
-    palabras = normalizar_texto(texto).split()
-    return [p for p in palabras if p not in PREFIJOS_IGNORAR]
-
 def primera_consonante_interna(palabra):
     if not palabra or len(palabra) < 2:
         return 'X'
@@ -202,39 +195,31 @@ def primera_consonante_interna(palabra):
 
 def validar_consistencia_alumno(row):
     curp = str(row.get('CURP', '')).strip().upper()
+    
+    # 1. Validación matemática obligatoria
     if not validar_digito_verificador_curp(curp):
         return False
         
-    paterno_raw = str(row.get('Apellido Paterno', ''))
-    materno_raw = str(row.get('Apellido Materno', ''))
-    nombres_raw = str(row.get('Nombre(s)', ''))
+    paterno_raw = normalizar_texto(str(row.get('Apellido Paterno', '')))
+    materno_raw = normalizar_texto(str(row.get('Apellido Materno', '')))
+    nombres_raw = normalizar_texto(str(row.get('Nombre(s)', '')))
     
-    paterno_limpio = limpiar_palabras(paterno_raw)
-    materno_limpio = limpiar_palabras(materno_raw)
-    nombres_limpios = limpiar_palabras(nombres_raw)
+    p_pat = paterno_raw.split()[0] if paterno_raw else ""
+    p_mat = materno_raw.split()[0] if materno_raw else ""
+    p_nom = nombres_raw.split()[0] if nombres_raw else ""
     
-    # 1. Validar iniciales principales (Posiciones 0, 2, 3)
-    p_pat = paterno_limpio[0] if paterno_limpio else ""
-    p_mat = materno_limpio[0] if materno_limpio else ""
-    
-    # Elección del primer nombre relevante
-    nom_rel = ""
-    if len(nombres_limpios) > 1 and nombres_limpios[0] in NOMBRES_COMUNES_IGNORAR:
-        nom_rel = nombres_limpios[1]
-    elif nombres_limpios:
-        nom_rel = nombres_limpios[0]
-        
+    # 2. Validación de Iniciales Principales
     if p_pat and curp[0] != p_pat[0]:
         return False
     if p_mat and curp[2] != p_mat[0]:
         return False
-    if nom_rel and curp[3] != nom_rel[0]:
+    if p_nom and curp[3] != p_nom[0]:
         return False
 
-    # 2. Validar consonantes internas clave (Posiciones 13, 14, 15)
+    # 3. Validación de Consonantes Internas Directas (Sin omitir palabras)
     c_pat = primera_consonante_interna(p_pat) if p_pat else 'X'
     c_mat = primera_consonante_interna(p_mat) if p_mat else 'X'
-    c_nom = primera_consonante_interna(nom_rel) if nom_rel else 'X'
+    c_nom = primera_consonante_interna(p_nom) if p_nom else 'X'
     
     cons_esperadas = f"{c_pat}{c_mat}{c_nom}"
     cons_curp = curp[13:16]
@@ -245,20 +230,9 @@ def validar_consistencia_alumno(row):
     return True
 
 def calcular_prefijo_teorico(nombre, ap_paterno, ap_materno, fecha_nac, genero, entidad):
-    p_pat_list = limpiar_palabras(ap_paterno)
-    p_mat_list = limpiar_palabras(ap_materno)
-    p_nom_list = limpiar_palabras(nombre)
-    
-    p_pat = p_pat_list[0] if p_pat_list else "X"
-    p_mat = p_mat_list[0] if p_mat_list else "X"
-    
-    p_nom = ""
-    if len(p_nom_list) > 1 and p_nom_list[0] in NOMBRES_COMUNES_IGNORAR:
-        p_nom = p_nom_list[1]
-    elif p_nom_list:
-        p_nom = p_nom_list[0]
-    else:
-        p_nom = "X"
+    p_pat = normalizar_texto(ap_paterno).split()[0] if ap_paterno else "X"
+    p_mat = normalizar_texto(ap_materno).split()[0] if ap_materno else "X"
+    p_nom = normalizar_texto(nombre).split()[0] if nombre else "X"
     
     c1 = p_pat[0] if len(p_pat) > 0 else "X"
     
