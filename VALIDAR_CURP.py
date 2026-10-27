@@ -19,6 +19,7 @@ st.set_page_config(
 HOJAS_DISPONIBLES = {
     "Zona 1": "ZONA 1",
     "Plantel 15DES0024B": "15DES0024B"
+    "Plantel 15DES0008K": "15DES0008K"
 }
 
 # --- CAPTURA DE TEMA Y SELECCIÓN DE HOJA DESDE LA BARRA LATERAL ---
