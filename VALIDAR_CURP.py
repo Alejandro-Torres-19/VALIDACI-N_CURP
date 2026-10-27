@@ -18,7 +18,7 @@ st.set_page_config(
 # --- CATÁLOGO DE HOJAS DENTRO DEL DOCUMENTO GLOBAL "VALIDADOR CURP" ---
 HOJAS_DISPONIBLES = {
     "Zona 1": "ZONA 1",
-    "Plantel 15DES0024B": "15DES0024B"
+    "Plantel 15DES0024B": "15DES0024B",
     "Plantel 15DES0008K": "15DES0008K"
 }
 
